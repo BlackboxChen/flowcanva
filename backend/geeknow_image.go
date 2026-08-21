@@ -1,12 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+var geekNowImagePollInterval = 4 * time.Second
+var geekNowImageMaxWait = 10 * time.Minute
 
 func isGeekNowImageModel(model string) bool {
 	switch model {
@@ -32,8 +39,124 @@ func (h *Handler) generateGeekNowImage(c *gin.Context, req ImageGenRequest, base
 	}
 	if req.Image != "" {
 		payload["image"] = []string{stripDataURLPrefix(req.Image)}
+		// GeekNow 异步入口不接受 data URL 参考图，编辑任务继续使用同步兼容接口。
+		h.proxyImageJSON(c, baseURL+"/images/generations", apiKey, payload)
+		return
 	}
-	h.proxyImageJSON(c, baseURL+"/images/generations", apiKey, payload)
+	h.generateGeekNowImageAsync(c, strings.TrimRight(baseURL, "/"), apiKey, payload)
+}
+
+func (h *Handler) generateGeekNowImageAsync(c *gin.Context, baseURL, apiKey string, payload map[string]any) {
+	task, err := requestGeekNowImageTask(c, baseURL, apiKey, payload)
+	if err != nil {
+		h.log.Error("geeknow image task create failed", "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	h.log.Info("geeknow image task created", "task_id", task)
+
+	result, err := pollGeekNowImageTask(c, baseURL, apiKey, task)
+	if err != nil {
+		h.log.Error("geeknow image task failed", "task_id", task, "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error(), "task_id": task})
+		return
+	}
+	h.log.Info("geeknow image task completed", "task_id", task, "images", len(result.Data))
+	c.JSON(http.StatusOK, result)
+}
+
+type geekNowImageResult struct {
+	Created int64 `json:"created,omitempty"`
+	Data    []struct {
+		URL     string `json:"url,omitempty"`
+		B64JSON string `json:"b64_json,omitempty"`
+	} `json:"data"`
+}
+
+func requestGeekNowImageTask(c *gin.Context, baseURL, apiKey string, payload map[string]any) (string, error) {
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+"/images/generations/async", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := imageGenerationClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	data, err := decodeGeekNowImageResponse(resp)
+	if err != nil {
+		return "", err
+	}
+	for _, key := range []string{"id", "task_id", "taskId"} {
+		if value, _ := data[key].(string); value != "" {
+			return value, nil
+		}
+	}
+	return "", fmt.Errorf("异步生图未返回 task_id")
+}
+
+func pollGeekNowImageTask(c *gin.Context, baseURL, apiKey, taskID string) (geekNowImageResult, error) {
+	deadline := time.NewTimer(geekNowImageMaxWait)
+	defer deadline.Stop()
+	ticker := time.NewTicker(geekNowImagePollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return geekNowImageResult{}, c.Request.Context().Err()
+		case <-deadline.C:
+			return geekNowImageResult{}, fmt.Errorf("异步生图任务超时")
+		case <-ticker.C:
+			req, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, baseURL+"/images/generations/async/"+taskID, nil)
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+			resp, err := pollClient.Do(req)
+			if err != nil {
+				continue
+			}
+			data, decodeErr := decodeGeekNowImageResponse(resp)
+			resp.Body.Close()
+			if decodeErr != nil {
+				return geekNowImageResult{}, decodeErr
+			}
+			status, _ := data["status"].(string)
+			status = strings.ToLower(status)
+			if status == "failed" || status == "cancelled" || status == "canceled" {
+				return geekNowImageResult{}, fmt.Errorf("异步生图失败: %s", geekNowImageError(data))
+			}
+			if raw, ok := data["data"]; ok {
+				encoded, _ := json.Marshal(map[string]any{"created": time.Now().Unix(), "data": raw})
+				var result geekNowImageResult
+				if json.Unmarshal(encoded, &result) == nil && len(result.Data) > 0 {
+					return result, nil
+				}
+			}
+		}
+	}
+}
+
+func decodeGeekNowImageResponse(resp *http.Response) (map[string]any, error) {
+	body, _ := io.ReadAll(resp.Body)
+	data := map[string]any{}
+	_ = json.Unmarshal(body, &data)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("GeekNow 返回 %d: %s", resp.StatusCode, geekNowImageError(data))
+	}
+	return data, nil
+}
+
+func geekNowImageError(data map[string]any) string {
+	if errData, ok := data["error"].(map[string]any); ok {
+		if message, _ := errData["message"].(string); message != "" {
+			return message
+		}
+	}
+	if message, _ := data["error"].(string); message != "" {
+		return message
+	}
+	return "未知错误"
 }
 
 func geekNowImageSize(model, resolution, ratio string) (string, error) {

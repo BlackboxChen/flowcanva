@@ -63,6 +63,7 @@ const mentionFilter = ref('')
 const mentionAnchor = ref<'inline' | 'modal'>('inline')
 
 const allDisplayImages = ref<{ id: number; url: string; label: string; isRef: boolean }[]>([])
+let nodeInitialized = false
 
 watch(ratioOptions, (options) => {
   if (!options.includes(selectedRatio.value)) selectedRatio.value = options[0]
@@ -125,6 +126,9 @@ watch(() => props.node, (n) => {
         promptHtml.value = data.promptHtml || ''
         images.value = data.images || []
         generatedImages.value = data.generated_images || []
+        if (!nodeInitialized && data._loading === true) {
+          emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '任务连接已中断，请重新生成' }))
+        }
       } else {
         prompt.value = n.content || ''
         promptHtml.value = ''
@@ -149,6 +153,7 @@ watch(() => props.node, (n) => {
       }
     })
     loadPresets()
+    nodeInitialized = true
   }
 }, { immediate: true })
 
