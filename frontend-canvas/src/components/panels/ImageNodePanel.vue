@@ -309,7 +309,7 @@ async function generate() {
 
     // 先清空旧图，保存到节点让画布显示空白/加载状态
     generatedImages.value = []
-    emit('save', buildContent({ images: images.value, generated_images: [] }))
+    emit('save', buildContent({ images: images.value, generated_images: [], _loading: true, _error: '' }))
 
     const res = await fetch('/api/images/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (!res.ok) {
@@ -325,9 +325,10 @@ async function generate() {
         generatedImages.value.push({ id: Date.now() + i, url })
       }
     }
-    emit('save', buildContent({ images: images.value, generated_images: generatedImages.value }))
+    emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
   } catch (e: any) {
     errorMessage.value = e.message || '图片生成失败'
+    emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: errorMessage.value }))
   } finally { loading.value = false }
 }
 

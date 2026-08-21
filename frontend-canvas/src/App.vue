@@ -426,10 +426,8 @@ function handleRemoveAsset(id: string) {
   removeAsset(id)
 }
 
-async function handleSavePanel(content: string) {
-  if (!selectedNodeId.value) return
-
-  const node = nodes.value.find(n => n.id === selectedNodeId.value)
+async function handleSavePanelForNode(nodeId: string, content: string) {
+  const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return
 
   const isVideo = node.node_type === 'video'
@@ -487,12 +485,17 @@ async function handleSavePanel(content: string) {
       selectedNodeId.value = savedId
     }
   } else {
-    updateNodeContent(selectedNodeId.value, content)
+    updateNodeContent(nodeId, content)
   }
 
   if (node.node_type === 'asset' && !content) {
-    edges.value = edges.value.filter(e => e.source_node_id !== selectedNodeId.value)
+    edges.value = edges.value.filter(e => e.source_node_id !== nodeId)
   }
+}
+
+async function handleSavePanel(content: string) {
+  if (!selectedNodeId.value) return
+  await handleSavePanelForNode(selectedNodeId.value, content)
 }
 </script>
 
@@ -560,6 +563,7 @@ async function handleSavePanel(content: string) {
       @delete-edge="handleDeleteEdge"
       @remove-connected-edge="handleRemoveConnectedEdge"
       @save-panel="handleSavePanel"
+      @save-panel-for-node="handleSavePanelForNode"
       @save-node-content="handleSaveNodeContent"
       @add-connected-node="handleAddConnectedNode"
       @update-asset="handleUpdateAsset"

@@ -48,6 +48,7 @@ const emit = defineEmits<{
   (e: 'create-edge', sourceNodeId: string, targetNodeId: string): void
   (e: 'delete-edge', edgeId: string): void
   (e: 'save-panel', content: string): void
+  (e: 'save-panel-for-node', nodeId: string, content: string): void
   (e: 'save-node-content', nodeId: string, content: string): void
   (e: 'remove-connected-edge', edgeId: string): void
   (e: 'update-asset', id: string, data: { category?: string; tags?: string }): void
@@ -105,6 +106,21 @@ const panelStyle = computed(() => {
     zIndex: '50',
   }
 })
+
+function imagePanelStyle(node: Node): Record<string, string> {
+  if (node.id !== props.selectedNodeId || dragOffsets[node.id] || resizeOffsets[node.id]) {
+    return { display: 'none' }
+  }
+  const pw = Math.max(node.width + PANEL_EXTRA_W, 320)
+  return {
+    display: '',
+    position: 'absolute',
+    left: `${node.x - PANEL_EXTRA_W / 2}px`,
+    top: `${node.y + node.height + PANEL_GAP}px`,
+    width: `${pw}px`,
+    zIndex: '50',
+  }
+}
 
 // 计算每个节点的连线输入（上游节点的数据流到下游）
 interface InputData {
@@ -500,7 +516,7 @@ function onPanelSave(content: string) {
       />
 
       <component
-        v-if="selectedNode?.node_type !== 'text' && selectedNode?.node_type !== 'asset' && selectedNode?.node_type !== 'table'"
+        v-if="selectedNode?.node_type !== 'text' && selectedNode?.node_type !== 'asset' && selectedNode?.node_type !== 'table' && selectedNode?.node_type !== 'image'"
         :is="panelMap[selectedNode?.node_type ?? '']"
         :node="selectedNode"
         :panel-style="panelStyle"
@@ -511,6 +527,17 @@ function onPanelSave(content: string) {
         @update-asset="(id: string, data: any) => emit('update-asset', id, data)"
         @remove-asset="(id: string) => emit('remove-asset', id)"
         @create-asset-node="(imageUrl: string, name: string) => emit('create-asset-from-screenshot', imageUrl, name)"
+      />
+
+      <!-- 图片任务组件常驻：切换节点时不中断请求，结果按固定 node ID 回写。 -->
+      <ImageNodePanel
+        v-for="node in nodes.filter(n => n.node_type === 'image')"
+        :key="`image-panel-${node.id}`"
+        :node="node"
+        :panel-style="imagePanelStyle(node)"
+        :node-inputs="nodeInputs[node.id] ?? []"
+        @save="(content: string) => emit('save-panel-for-node', node.id, content)"
+        @remove-connected-edge="(edgeId: string) => emit('remove-connected-edge', edgeId)"
       />
     </div>
 
