@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import type { Node } from '../../types'
 import MentionDropdown from '../MentionDropdown.vue'
 import { useNodeConfigs } from '../../composables/useNodeConfigs'
@@ -15,17 +15,17 @@ const emit = defineEmits<{
   (e: 'remove-connected-edge', edgeId: string): void
 }>()
 
-const { getModels, getModelConfig } = useNodeConfigs()
+const { modelInfoMap, getModels, getModelConfig } = useNodeConfigs()
 
 const prompt = ref('')
 const promptHtml = ref('')
 const loading = ref(false)
 const videos = ref<{ id: number; url: string }[]>([])
-const selectedModel = ref('doubao-seedance-2-0-260128')
-const models = ref<string[]>(['doubao-seedance-2-0-260128'])
-const selectedRatio = ref('9:16')
-const selectedResolution = ref('720p')
-const selectedDuration = ref('10')
+const selectedModel = ref('sd-2.0-15s-16x9-480p')
+const models = ref<string[]>(['sd-2.0-15s-16x9-480p'])
+const selectedRatio = ref('16:9')
+const selectedResolution = ref('480p')
+const selectedDuration = ref('15')
 const selectedCount = ref(1)
 const selectedMode = ref('文生视频')
 
@@ -45,10 +45,15 @@ function updateModeByImages() {
   }
 }
 
-const ratioOptions = ['9:16', '16:9', '1:1']
+const isZhengSDModel = computed(() => /^sd-2\.0(?:fast)?-15s-/.test(selectedModel.value))
+const ratioOptions = computed(() => isZhengSDModel.value ? ['16:9', '9:16'] : ['9:16', '16:9', '1:1'])
 const resolutionOptions = ['480p', '720p', '1080p']
-const durationOptions = ['4', '5', '6', '8', '10', '12', '15']
-const countOptions = [1, 2]
+const durationOptions = computed(() => isZhengSDModel.value ? ['15'] : ['4', '5', '6', '8', '10', '12', '15'])
+const countOptions = computed(() => isZhengSDModel.value ? [1] : [1, 2])
+
+watch(countOptions, (options) => {
+  if (!options.includes(selectedCount.value)) selectedCount.value = options[0]
+})
 
 interface UploadImage { id: number; name: string; dataUrl: string; mediaType: 'image' | 'video' | 'audio' }
 const images = ref<UploadImage[]>([])
@@ -104,13 +109,14 @@ watch(() => props.nodeInputs, (inputs) => {
   if (!inputs) return
   const currentEdgeIds = new Set<string>()
   for (const inp of inputs) {
-    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image') && inp.data?.dataUrl) {
+    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && inp.data?.dataUrl) {
       currentEdgeIds.add(inp.edgeId)
       if (!connectedImages.value.has(inp.edgeId)) {
         imageCounter++
         const localId = imageCounter
         compressImage(inp.data.dataUrl).then(compressed => {
-          const img = { id: localId, name: `图片${localId}`, dataUrl: compressed, mediaType: 'image' as const }
+          const mediaType = inp.data.mediaType === 'video' ? 'video' as const : 'image' as const
+          const img = { id: localId, name: `文件${localId}`, dataUrl: compressed, mediaType }
           connectedImages.value.set(inp.edgeId, img)
           images.value.push(img)
           images.value.sort((a, b) => a.id - b.id)
@@ -128,18 +134,42 @@ watch(() => props.nodeInputs, (inputs) => {
   updateModeByImages()
 }, { immediate: true, deep: true })
 
+function syncModels() {
+  if (!props.node) return
+  const typeModels = getModels(props.node.node_type)
+  models.value = typeModels.length > 0 ? typeModels : ['sd-2.0-15s-16x9-480p']
+  if (!models.value.includes(selectedModel.value)) {
+    selectedModel.value = models.value.find(model => isZhengAPIVideoModel(model)) || models.value[0]
+  }
+}
+
+function isZhengAPIVideoModel(model: string) {
+  return /^sd-2\.0(?:fast)?-15s-(?:16x9|9x16)-(?:480p|720p|1080p)$/.test(model)
+}
+
+watch([() => props.node?.node_type, modelInfoMap], syncModels, { immediate: true })
+
+watch(selectedModel, (model) => {
+  const match = model.match(/^sd-2\.0(?:fast)?-15s-(16x9|9x16)-(480p|720p|1080p)$/)
+  if (!match) return
+  selectedRatio.value = match[1].replace('x', ':')
+  selectedResolution.value = match[2]
+  selectedDuration.value = '15'
+}, { immediate: true })
+
+watch([selectedRatio, selectedResolution], ([ratio, resolution]) => {
+  if (!isZhengSDModel.value) return
+  const family = selectedModel.value.startsWith('sd-2.0fast-') ? 'sd-2.0fast' : 'sd-2.0'
+  const model = `${family}-15s-${ratio.replace(':', 'x')}-${resolution}`
+  if (models.value.includes(model)) selectedModel.value = model
+})
+
 watch(() => props.node, (n) => {
   if (n) {
-    const typeModels = getModels(n.node_type)
-    models.value = typeModels.length > 0 ? typeModels : ['doubao-seedance-2-0-260128']
-    if (!models.value.includes(selectedModel.value)) {
-      selectedModel.value = models.value[0] || 'doubao-seedance-2-0-260128'
-    }
     try {
       const data = n.content ? JSON.parse(n.content) : null
-      if (data) { prompt.value = data.prompt || ''; promptHtml.value = data.promptHtml || ''; videos.value = data.videos || []; loading.value = data._loading || false }
+      if (data) { prompt.value = data.prompt || ''; promptHtml.value = data.promptHtml || ''; videos.value = data.videos || [] }
       else { prompt.value = n.content || ''; promptHtml.value = ''; videos.value = [] }
-      if (loading.value) { loading.value = false; emit('save', buildContent({ videos: videos.value, _loading: false })) }
     } catch { prompt.value = n.content || ''; videos.value = [] }
     const connIds = new Set([...connectedImages.value.values()].map(i => i.id))
     // 保留未连线的手动上传图片，仅删除已断开的连线图片
@@ -167,7 +197,7 @@ watch(prompt, () => {
   promptSaveTimer = setTimeout(() => {
     const existing: any = {}
     try { if (props.node?.content) Object.assign(existing, JSON.parse(props.node.content)) } catch {}
-    emit('save', buildContent({ videos: existing.videos || videos.value, _loading: false }))
+    emit('save', buildContent({ videos: existing.videos || videos.value, _loading: existing._loading === true, _error: existing._error || '' }))
   }, 800)
 })
 
@@ -260,10 +290,8 @@ async function uploadToImageHost(dataUrl: string): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ data_url: dataUrl }),
   })
-  console.log('[video] proxy upload status:', res.status)
   if (!res.ok) throw new Error('upload failed')
   const data = await res.json()
-  console.log('[video] proxy upload result:', JSON.stringify(data).substring(0, 100))
   return data.url
 }
 
@@ -272,12 +300,12 @@ async function generate() {
   loading.value = true
   const modelConfig = getModelConfig(props.node?.node_type || 'video', selectedModel.value)
   try {
-    console.log('[video] generate start, mode:', selectedMode.value, 'prompt:', prompt.value)
     const body: Record<string, any> = { model: selectedModel.value, prompt: prompt.value, seconds: selectedDuration.value, ratio: selectedRatio.value, resolution: selectedResolution.value, n: selectedCount.value, mode: selectedMode.value }
     if (modelConfig) {
       if (modelConfig.channel) body.channel = modelConfig.channel
       if (modelConfig.base_url) body.base_url = modelConfig.base_url
       if (modelConfig.api_key) body.api_key = modelConfig.api_key
+      if (modelConfig.protocol) body.protocol = modelConfig.protocol
     }
     // 只用 images.value（已排序），过滤 image 类型用于上传图床，video/audio 直接传 URL
     const imgUrls = images.value.filter(i => i.mediaType === 'image').map(i => i.dataUrl).filter(Boolean)
@@ -285,37 +313,24 @@ async function generate() {
     const audRefs = images.value.filter(i => i.mediaType === 'audio').map(i => i.dataUrl).filter(Boolean)
     if (vidRefs.length > 0) body.video_urls = vidRefs
     if (audRefs.length > 0) body.audio_urls = audRefs
-    console.log('[video] collected images:', imgUrls.length, 'videos:', vidRefs.length, 'audio:', audRefs.length)
     const uploadedUrls: string[] = []
     for (const url of imgUrls) {
       try {
         if (url.startsWith('data:')) {
-          console.log('[video] uploading to image host, length:', url.length)
           const uploaded = await uploadToImageHost(url)
-          console.log('[video] uploaded:', uploaded.substring(0, 60))
           uploadedUrls.push(uploaded)
         } else {
-          console.log('[video] using existing url:', url.substring(0, 60))
           uploadedUrls.push(url)
         }
-      } catch (e) { console.error('[video] upload failed, fallback:', e); uploadedUrls.push(url) }
+      } catch { uploadedUrls.push(url) }
     }
-    console.log('[video] final uploadedUrls:', uploadedUrls.length, 'urls')
     if (selectedMode.value !== '文生视频' && uploadedUrls.length > 0) {
       if (selectedMode.value === '首帧') body.image_url = uploadedUrls[0]
       else if (selectedMode.value === '首尾帧') body.image_urls = uploadedUrls.slice(0, 2)
       else if (selectedMode.value === '全能参考') body.image_urls = uploadedUrls
     }
 
-    const vidUrls: string[] = []
-    const audUrls: string[] = []
-    if (props.nodeInputs) for (const inp of props.nodeInputs) {
-      if (inp.sourceNodeType === 'video' && inp.data && typeof inp.data === 'string') vidUrls.push(inp.data)
-    }
-    if (vidUrls.length > 0) body.video_urls = vidUrls
-    if (audUrls.length > 0) body.audio_urls = audUrls
-
-    emit('save', buildContent({ videos: videos.value, _loading: true }))
+    emit('save', buildContent({ videos: videos.value, _loading: true, _error: '' }))
 
     const res = await fetch('/api/video/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(typeof err.error === 'string' ? err.error : (err.error?.message || res.statusText)) }
@@ -324,12 +339,9 @@ async function generate() {
       videos.value = []
       for (let i = 0; i < data.videos.length; i++) videos.value.push({ id: Date.now() + i, url: data.videos[i] })
     }
-    emit('save', buildContent({ videos: videos.value, _loading: false }))
+    emit('save', buildContent({ videos: videos.value, _loading: false, _error: '' }))
   } catch (e: any) {
-    prompt.value = prompt.value + '\n\n**错误:** ' + (e.message || '未知错误')
-    promptHtml.value = prompt.value
-    if (editableRef.value) editableRef.value.textContent = prompt.value
-    emit('save', buildContent({ videos: videos.value, _loading: false }))
+    emit('save', buildContent({ videos: videos.value, _loading: false, _error: e.message || '视频生成失败' }))
   } finally {
     loading.value = false
   }

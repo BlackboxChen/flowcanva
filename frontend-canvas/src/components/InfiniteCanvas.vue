@@ -107,7 +107,7 @@ const panelStyle = computed(() => {
   }
 })
 
-function imagePanelStyle(node: Node): Record<string, string> {
+function taskPanelStyle(node: Node): Record<string, string> {
   if (node.id !== props.selectedNodeId || dragOffsets[node.id] || resizeOffsets[node.id]) {
     return { display: 'none' }
   }
@@ -143,6 +143,13 @@ const nodeInputs = computed(() => {
         const parsed = JSON.parse(source.content)
         const gens = parsed.generated_images || []
         data = gens.length > 0 ? { dataUrl: gens[0].url } : null
+      } catch { /* keep raw */ }
+    }
+    if (source.node_type === 'video' && source.content) {
+      try {
+        const parsed = JSON.parse(source.content)
+        const videos = parsed.videos || []
+        data = videos.length > 0 ? { dataUrl: videos[0].url, mediaType: 'video' } : null
       } catch { /* keep raw */ }
     }
     if (!map[edge.target_node_id]) map[edge.target_node_id] = []
@@ -516,7 +523,7 @@ function onPanelSave(content: string) {
       />
 
       <component
-        v-if="selectedNode?.node_type !== 'text' && selectedNode?.node_type !== 'asset' && selectedNode?.node_type !== 'table' && selectedNode?.node_type !== 'image'"
+        v-if="selectedNode?.node_type !== 'text' && selectedNode?.node_type !== 'asset' && selectedNode?.node_type !== 'table' && selectedNode?.node_type !== 'image' && selectedNode?.node_type !== 'video'"
         :is="panelMap[selectedNode?.node_type ?? '']"
         :node="selectedNode"
         :panel-style="panelStyle"
@@ -534,7 +541,18 @@ function onPanelSave(content: string) {
         v-for="node in nodes.filter(n => n.node_type === 'image')"
         :key="`image-panel-${node.id}`"
         :node="node"
-        :panel-style="imagePanelStyle(node)"
+        :panel-style="taskPanelStyle(node)"
+        :node-inputs="nodeInputs[node.id] ?? []"
+        @save="(content: string) => emit('save-panel-for-node', node.id, content)"
+        @remove-connected-edge="(edgeId: string) => emit('remove-connected-edge', edgeId)"
+      />
+
+      <!-- 视频任务组件常驻：多个节点可同时轮询，结果按固定 node ID 回写。 -->
+      <VideoNodePanel
+        v-for="node in nodes.filter(n => n.node_type === 'video')"
+        :key="`video-panel-${node.id}`"
+        :node="node"
+        :panel-style="taskPanelStyle(node)"
         :node-inputs="nodeInputs[node.id] ?? []"
         @save="(content: string) => emit('save-panel-for-node', node.id, content)"
         @remove-connected-edge="(edgeId: string) => emit('remove-connected-edge', edgeId)"

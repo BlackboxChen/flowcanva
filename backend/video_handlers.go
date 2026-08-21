@@ -29,6 +29,7 @@ type VideoGenRequest struct {
 	Channel    string   `json:"channel,omitempty"`
 	BaseURL    string   `json:"base_url,omitempty"`
 	APIKey     string   `json:"api_key,omitempty"`
+	Protocol   string   `json:"protocol,omitempty"`
 }
 
 type VideoGenResponse struct {
@@ -53,6 +54,10 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 		return
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
+	if req.Protocol == "zhengapi_video" || isZhengAPISDModel(req.Model) {
+		h.generateZhengAPIVideo(c, req, baseURL, apiKey)
+		return
+	}
 	if req.Model == "" {
 		req.Model = "doubao-seedance-2-0-260128"
 	}

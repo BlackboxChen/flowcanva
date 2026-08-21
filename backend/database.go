@@ -151,6 +151,9 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 	if err := ensureGeekNowImageModels(db, log); err != nil {
 		return err
 	}
+	if err := ensureZhengAPIVideoModels(db, log); err != nil {
+		return err
+	}
 
 	// ensure upload dir exists
 	_ = os.MkdirAll("uploads", 0755)

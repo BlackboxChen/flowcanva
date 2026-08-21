@@ -525,8 +525,8 @@ const imageUrls = computed(() => {
   return []
 })
 
-const imageTaskState = computed(() => {
-  if (props.node.node_type !== 'image') return { loading: false, error: '' }
+const mediaTaskState = computed(() => {
+  if (props.node.node_type !== 'image' && props.node.node_type !== 'video') return { loading: false, error: '' }
   try {
     const data = JSON.parse(props.node.content || '{}')
     return { loading: data._loading === true, error: typeof data._error === 'string' ? data._error : '' }
@@ -645,12 +645,12 @@ onMounted(() => {
 
       <!-- 图片节点 -->
       <div v-else-if="node.node_type === 'image'" class="h-full flex items-center justify-center overflow-hidden relative">
-        <div v-if="imageTaskState.loading" class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-neutral-950/70 backdrop-blur-sm text-white/80">
+        <div v-if="mediaTaskState.loading" class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-neutral-950/70 backdrop-blur-sm text-white/80">
           <span class="loading loading-spinner loading-md" />
           <span class="text-xs">生成中，可继续运行其他节点</span>
         </div>
-        <div v-else-if="imageTaskState.error" class="absolute left-2 right-2 bottom-2 z-20 rounded-lg border border-red-400/30 bg-red-950/90 px-2 py-1.5 text-[10px] text-red-200 line-clamp-3" :title="imageTaskState.error">
-          {{ imageTaskState.error }}
+        <div v-else-if="mediaTaskState.error" class="absolute left-2 right-2 bottom-2 z-20 rounded-lg border border-red-400/30 bg-red-950/90 px-2 py-1.5 text-[10px] text-red-200 line-clamp-3" :title="mediaTaskState.error">
+          {{ mediaTaskState.error }}
         </div>
         <template v-if="imageUrls.length > 0">
           <img v-for="(url, i) in imageUrls" :key="i" :src="url" class="rounded-lg object-contain w-full h-full pointer-events-none select-none" @load="(e) => { const img = e.target as HTMLImageElement; const maxW = 600; const maxH = 480; let w = img.naturalWidth, h = img.naturalHeight; if (w > maxW) { h = h * maxW / w; w = maxW; } if (h > maxH) { w = w * maxH / h; h = maxH; } emit('image-loaded', { w: Math.round(w) + 60, h: Math.round(h) + 36 }); }" />
@@ -670,7 +670,14 @@ onMounted(() => {
       </div>
 
       <!-- 视频节点 -->
-      <div v-else-if="node.node_type === 'video'" class="h-full p-2 flex items-center justify-center overflow-hidden">
+      <div v-else-if="node.node_type === 'video'" class="h-full p-2 flex items-center justify-center overflow-hidden relative">
+        <div v-if="mediaTaskState.loading" class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-neutral-950/70 backdrop-blur-sm text-white/80">
+          <span class="loading loading-spinner loading-md" />
+          <span class="text-xs">生成中，可继续运行其他节点</span>
+        </div>
+        <div v-else-if="mediaTaskState.error" class="absolute left-2 right-2 bottom-2 z-20 rounded-lg border border-red-400/30 bg-red-950/90 px-2 py-1.5 text-[10px] text-red-200 line-clamp-3" :title="mediaTaskState.error">
+          {{ mediaTaskState.error }}
+        </div>
         <template v-if="videoUrls.length > 0">
           <div class="w-full h-full flex flex-col gap-1 overflow-auto">
             <video v-for="(url, i) in videoUrls" :key="i" :src="url" controls class="w-full rounded-lg object-contain max-h-full"

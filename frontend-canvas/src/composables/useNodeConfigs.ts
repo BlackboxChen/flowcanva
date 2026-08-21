@@ -47,7 +47,7 @@ const loading = ref(false)
 
 const FALLBACK_NAMES: Record<string, string[]> = {
   image: ['gpt-image-2'],
-  video: ['doubao-seedance-2-0-260128'],
+  video: ['sd-2.0-15s-16x9-480p'],
   text: ['GPT-4', 'Claude 3', 'Gemini'],
   agent: ['GPT-4', 'Claude 3', 'Gemini'],
   table: ['GPT-4', 'Claude 3', 'Gemini'],
