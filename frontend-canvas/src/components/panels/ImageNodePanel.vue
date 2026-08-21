@@ -126,6 +126,7 @@ watch(() => props.node, (n) => {
         promptHtml.value = data.promptHtml || ''
         images.value = data.images || []
         generatedImages.value = data.generated_images || []
+        errorMessage.value = typeof data._error === 'string' ? data._error : ''
         if (!nodeInitialized && data._loading === true) {
           emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '任务连接已中断，请重新生成' }))
         }
@@ -344,9 +345,40 @@ async function generate() {
 }
 
 function removeGenerated(img: { id: number; url: string }) {
-  images.value = images.value.filter(i => i.id !== img.id)
+  generatedImages.value = generatedImages.value.filter(i => i.id !== img.id)
   rebuildDisplay()
-  emit('save', JSON.stringify({ prompt: prompt.value, images: images.value, generated_images: generatedImages.value }))
+  emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
+}
+
+function saveRecoveredImage(url: string) {
+  const value = url.trim()
+  if (!value || (!value.startsWith('http://') && !value.startsWith('https://') && !value.startsWith('data:image/'))) {
+    errorMessage.value = '请输入有效的图片链接或选择图片文件'
+    return
+  }
+  generatedImages.value = [{ id: Date.now(), url: value }]
+  errorMessage.value = ''
+  emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
+}
+
+function recoverFromURL() {
+  const url = window.prompt('粘贴中转站生成结果的图片 URL')
+  if (url) saveRecoveredImage(url)
+}
+
+function recoverFromFile() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => saveRecoveredImage(String(reader.result || ''))
+    reader.onerror = () => { errorMessage.value = '读取图片文件失败' }
+    reader.readAsDataURL(file)
+  }
+  input.click()
 }
 
 watch(modalOpen, async (v) => {
@@ -393,8 +425,10 @@ watch(modalOpen, async (v) => {
         <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, dataUrl: i.url }))" :filter="mentionFilter" @insert="insertMention" />
       </div>
 
-      <div v-if="errorMessage" class="mb-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 break-words">
-        {{ errorMessage }}
+      <div v-if="errorMessage" class="mb-2 flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+        <span class="min-w-0 flex-1 break-words">{{ errorMessage }}</span>
+        <button class="shrink-0 rounded border border-white/20 px-2 py-1 text-white/70 hover:bg-white/10" @click="recoverFromURL">粘贴链接</button>
+        <button class="shrink-0 rounded border border-white/20 px-2 py-1 text-white/70 hover:bg-white/10" @click="recoverFromFile">导入图片</button>
       </div>
 
       <div ref="editableRef" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
