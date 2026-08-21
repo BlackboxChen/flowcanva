@@ -16,6 +16,8 @@ func main() {
 		"port", cfg.Port,
 		"dev_mode", cfg.DevMode,
 		"db_path", cfg.DBPath,
+		"zhengapi_configured", cfg.ZhengAPIBaseURL != "" && cfg.ZhengAPIAPIKey != "",
+		"zhengapi_use_data_urls", cfg.ZhengAPIUseDataURLs,
 	)
 
 	db, err := initDB(cfg.DBPath, logger)
@@ -25,7 +27,7 @@ func main() {
 	}
 	defer db.Close()
 
-	h := &Handler{db: db, log: logger}
+	h := &Handler{db: db, log: logger, cfg: cfg}
 	r := setupRouter(h, cfg)
 
 	logger.Info("server ready", "port", cfg.Port)

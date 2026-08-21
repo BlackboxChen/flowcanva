@@ -47,15 +47,10 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 		return
 	}
 
-	apiKey := req.APIKey
-	if apiKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "api_key 未配置，请在管理台节点配置中设置"})
+	baseURL, apiKey, err := h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.openai.com/v1", true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-
-	baseURL := req.BaseURL
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
 	}
 
 	apiPath := req.Path
@@ -74,7 +69,9 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 			"messages": []map[string]string{{"role": "user", "content": req.Prompt}},
 			"n":        req.N,
 		}
-		if req.N <= 0 { bodyMap["n"] = 1 }
+		if req.N <= 0 {
+			bodyMap["n"] = 1
+		}
 		bodyBytes, _ = json.Marshal(bodyMap)
 	} else {
 		bodyMap := map[string]interface{}{
@@ -82,14 +79,27 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 			"prompt": req.Prompt,
 			"n":      req.N,
 		}
-		if req.N <= 0 { bodyMap["n"] = 1 }
-		if req.Size != "" { bodyMap["size"] = req.Size
+		if req.N <= 0 {
+			bodyMap["n"] = 1
+		}
+		if req.Size != "" {
+			bodyMap["size"] = req.Size
 		} else if req.AspectRatio != "" {
-			if s := computeSize(req.AspectRatio, req.ImageSize); s != "" { bodyMap["size"] = s }
-		} else { bodyMap["size"] = "1024x1024" }
-		if req.Image != "" { bodyMap["image"] = req.Image }
-		if req.AspectRatio != "" { bodyMap["aspect_ratio"] = req.AspectRatio }
-		if req.ImageSize != "" { bodyMap["image_size"] = req.ImageSize }
+			if s := computeSize(req.AspectRatio, req.ImageSize); s != "" {
+				bodyMap["size"] = s
+			}
+		} else {
+			bodyMap["size"] = "1024x1024"
+		}
+		if req.Image != "" {
+			bodyMap["image"] = req.Image
+		}
+		if req.AspectRatio != "" {
+			bodyMap["aspect_ratio"] = req.AspectRatio
+		}
+		if req.ImageSize != "" {
+			bodyMap["image_size"] = req.ImageSize
+		}
 		bodyBytes, _ = json.Marshal(bodyMap)
 	}
 
@@ -98,10 +108,6 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 	if apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
-	}
-
 	bodyMap := map[string]interface{}{
 		"model":  req.Model,
 		"prompt": req.Prompt,

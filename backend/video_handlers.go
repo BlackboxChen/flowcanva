@@ -47,13 +47,10 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 		return
 	}
 
-	apiKey := req.APIKey
-	if apiKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "api_key 未配置，请在管理台节点配置中设置"})
+	baseURL, apiKey, err := h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.nxfl.cc", false)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-	baseURL := req.BaseURL
-	if baseURL == "" {		baseURL = "https://api.nxfl.cc"
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	if req.Model == "" {
@@ -281,6 +278,10 @@ func (h *Handler) UploadToImageHost(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if h.cfg.ZhengAPIUseDataURLs {
+		c.JSON(http.StatusOK, gin.H{"url": body.DataURL})
 		return
 	}
 	b64 := strings.TrimPrefix(body.DataURL, "data:image/png;base64,")

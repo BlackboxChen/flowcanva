@@ -150,7 +150,7 @@ flowcanva/
 
 ## 🔑 API Key 配置
 
-每个节点**完全独立配置**，不同节点可对接不同 API 渠道/Key/模型，互不干扰。
+每个节点可独立配置不同 API 渠道/Key/模型；也可以通过 `ZHENGAPI_*` 环境变量提供全局中转站兜底。
 
 ### 配置方式
 
@@ -168,16 +168,18 @@ flowcanva/
 管理台按节点类型配置
     └─→ SQLite node_configs 表（每个节点类型一条记录）
          └─→ 前端请求时携带该节点配置的 api_key
-              └─→ 后端直接使用，不降级、不混用
+              └─→ 后端按 Key 选择完整配置对
+                   ├─→ 节点有 Key：使用节点 Base URL + Key
+                   └─→ 节点无 Key：使用 ZHENGAPI_BASE_URL + ZHENGAPI_API_KEY
 ```
 
-> ⚠️ 每个节点的 api_key 是独立的，不存在全局降级。未配置 key 的节点调用 API 时会报错提示去配置。
+> 节点自身配置了 API Key 时，始终使用该节点的 Key 与 Base URL。节点未配置 Key 时，才成对使用 `ZHENGAPI_API_KEY` 与 `ZHENGAPI_BASE_URL`，避免把中转密钥发送给其他服务。
 
 ### 安全提醒
 
 - `data.db` 中的 Key 为本地存储，建议设置文件权限
 - 发布前确认 `seed.json` 中无真实 Key
-- `.env` 仅用于服务端口/日志等基础参数，不涉及 API Key
+- `.env` 可能包含中转站 API Key，禁止提交版本库或对外分享
 
 ## 🔧 环境变量
 
@@ -188,6 +190,9 @@ flowcanva/
 | `DEV_MODE` | `false` | 开发模式 (反向代理前端 dev server) |
 | `EMBEDDED` | `false` | 嵌入模式 (从 exe 内置 FS 提供静态文件) |
 | `LOG_LEVEL` | `info` | 日志级别 (debug/info) |
+| `ZHENGAPI_BASE_URL` | 空 | 全局中转站根地址；文本/图片请求会自动补 `/v1` |
+| `ZHENGAPI_API_KEY` | 空 | 全局中转站密钥，仅在节点未配置 Key 时使用 |
+| `ZHENGAPI_USE_DATA_URLS` | `false` | 视频参考图是否直接使用 data URL，避免上传第三方图床 |
 
 ## 💬 交流反馈
 

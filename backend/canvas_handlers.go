@@ -13,6 +13,7 @@ import (
 type Handler struct {
 	db  *sql.DB
 	log *slog.Logger
+	cfg Config
 }
 
 // ─── Canvas handlers ────────────────────────────────────────────────

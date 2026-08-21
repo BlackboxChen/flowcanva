@@ -37,15 +37,10 @@ func (h *Handler) ChatWithLLM(c *gin.Context) {
 		return
 	}
 
-	apiKey := req.APIKey
-	if apiKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "api_key 未配置，请在管理台节点配置中设置"})
+	baseURL, apiKey, err := h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.openai.com/v1", true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-
-	baseURL := req.BaseURL
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
 	}
 
 	if req.Stream {
