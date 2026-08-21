@@ -20,6 +20,7 @@ const { getModels, getModelConfig } = useNodeConfigs()
 const prompt = ref('')
 const promptHtml = ref('')
 const loading = ref(false)
+const errorMessage = ref('')
 const modalOpen = ref(false)
 const images = ref<{ id: number; url: string; name?: string }[]>([])
 const generatedImages = ref<{ id: number; url: string }[]>([])
@@ -37,12 +38,19 @@ const selectedPreset = ref('')
 const defaultRatioOptions = ['自适应', '1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '5:4', '4:5', '21:9']
 const ratioOptions = computed(() => {
   const model = selectedModel.value
+  if (model === 'gpt-image-2' || model === 'gpt-image-2-pro') return ['1:1', '4:3', '3:2', '2:3', '16:9', '9:16']
+  if (model === 'gpt-image-2-vip' || model.startsWith('doubao-seedream-') || model === 'grok-4-2-image') return ['1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '21:9']
   if (model.startsWith('firefly-gpt-image')) return ['自适应', '1:1', '16:9', '9:16', '21:9', '4:3', '3:2', '2:3', '5:4', '4:5', '3:4']
   if (model.startsWith('firefly-nano-banana2')) return ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '3:2', '2:3', '5:4', '4:5', '8:1', '1:4', '1:8']
   if (model.startsWith('firefly-nano-banana')) return ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '5:4', '4:5']
   return defaultRatioOptions
 })
-const resolutionOptions = ['1K', '2K', '4K']
+const resolutionOptions = computed(() => {
+  if (selectedModel.value === 'gpt-image-2') return ['1K']
+  if (selectedModel.value === 'gpt-image-2-pro') return ['2K', '4K']
+  if (selectedModel.value.startsWith('doubao-seedream-') || selectedModel.value === 'grok-4-2-image') return ['2K']
+  return ['1K', '2K', '4K']
+})
 const countOptions = computed(() => selectedModel.value.startsWith('firefly-') ? [1] : [1, 2, 4])
 
 const presets = ref<{ id: string; name: string; prompt: string; category: string; scope: string }[]>([])
@@ -61,6 +69,9 @@ watch(ratioOptions, (options) => {
 })
 watch(countOptions, (options) => {
   if (!options.includes(selectedCount.value)) selectedCount.value = options[0]
+})
+watch(resolutionOptions, (options) => {
+  if (!options.includes(selectedResolution.value)) selectedResolution.value = options[0]
 })
 
 function rebuildDisplay() {
@@ -267,6 +278,7 @@ function insertMention(img: { id: any; name: string; src: string }) {
 async function generate() {
   if (!prompt.value || loading.value) return
   loading.value = true
+  errorMessage.value = ''
   const modelConfig = getModelConfig(props.node?.node_type || 'image', selectedModel.value)
   try {
     const sizeBase = { '1K': 1024, '2K': 2048, '4K': 4096 }[selectedResolution.value] || 1024
@@ -315,9 +327,7 @@ async function generate() {
     }
     emit('save', buildContent({ images: images.value, generated_images: generatedImages.value }))
   } catch (e: any) {
-    prompt.value = prompt.value + '\n\n**错误:** ' + (e.message || '未知错误')
-    promptHtml.value = prompt.value
-    if (editableRef.value) editableRef.value.textContent = prompt.value
+    errorMessage.value = e.message || '图片生成失败'
   } finally { loading.value = false }
 }
 
@@ -369,6 +379,10 @@ watch(modalOpen, async (v) => {
 
       <div v-if="showMention" class="relative">
         <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, dataUrl: i.url }))" :filter="mentionFilter" @insert="insertMention" />
+      </div>
+
+      <div v-if="errorMessage" class="mb-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 break-words">
+        {{ errorMessage }}
       </div>
 
       <div ref="editableRef" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
@@ -432,6 +446,7 @@ watch(modalOpen, async (v) => {
           </button>
         </div>
         <div class="flex-1 overflow-y-auto p-5 space-y-3">
+          <div v-if="errorMessage" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 break-words">{{ errorMessage }}</div>
           <div ref="modalContentEditable" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
           <div v-if="allDisplayImages.length > 0" class="flex flex-wrap gap-2">
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">

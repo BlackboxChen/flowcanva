@@ -150,7 +150,7 @@ flowcanva/
 
 ## 🔑 API Key 配置
 
-每个节点可独立配置不同 API 渠道/Key/模型；也可以通过 `ZHENGAPI_*` 环境变量提供全局中转站兜底。
+每个节点可独立配置不同 API 渠道/Key/模型；文本和视频可通过 `ZHENGAPI_*` 提供全局中转，图片可通过 `GEEKNOW_*` 单独配置。
 
 ### 配置方式
 
@@ -170,19 +170,19 @@ flowcanva/
          └─→ 前端请求时携带该节点配置的 api_key
               └─→ 后端按 Key 选择完整配置对
                    ├─→ 节点有 Key：使用节点 Base URL + Key
-                   └─→ 节点无 Key：使用 ZHENGAPI_BASE_URL + ZHENGAPI_API_KEY
+                   └─→ 节点无 Key：文本/视频使用 ZHENGAPI_*，图片使用 GEEKNOW_*
 ```
 
-> 节点自身配置了 API Key 时，始终使用该节点的 Key 与 Base URL。节点未配置 Key 时，才成对使用 `ZHENGAPI_API_KEY` 与 `ZHENGAPI_BASE_URL`，避免把中转密钥发送给其他服务。
+> 节点自身配置了 API Key 时，始终使用该节点的 Key 与 Base URL。图片节点未配置 Key 时，成对使用 `GEEKNOW_API_KEY` 与 `GEEKNOW_BASE_URL`；其他节点使用 `ZHENGAPI_*`。
 
-### ZhengAPI 图片模型
+### GeekNow 图片模型
 
-图片节点内置以下 ZhengAPI 模型：
+图片节点内置以下 GeekNow 模型：
 
-- Grok：`grok-imagine-1.0`、`grok-imagine-1.0-edit`
-- Firefly：`firefly-nano-banana`、`firefly-nano-banana-pro`、`firefly-nano-banana2`、`firefly-gpt-image`
+- GPT Image：`gpt-image-2`、`gpt-image-2-pro`
+- Seedream：`doubao-seedream-4-0-250828`、`doubao-seedream-4-5-251128`、`doubao-seedream-5-0-260128`
 
-Firefly 会按画布中选择的分辨率和宽高比自动生成完整模型 ID，例如 `firefly-nano-banana-2k-16x9`。Grok 和 Firefly 的图生图字段及响应协议由后端自动转换。
+后端会按照所选模型、分辨率和宽高比转换成 GeekNow 要求的实际像素尺寸；图生图参考图会转换为 Base64 数组。
 
 ### 安全提醒
 
@@ -199,9 +199,11 @@ Firefly 会按画布中选择的分辨率和宽高比自动生成完整模型 ID
 | `DEV_MODE` | `false` | 开发模式 (反向代理前端 dev server) |
 | `EMBEDDED` | `false` | 嵌入模式 (从 exe 内置 FS 提供静态文件) |
 | `LOG_LEVEL` | `info` | 日志级别 (debug/info) |
-| `ZHENGAPI_BASE_URL` | 空 | 全局中转站根地址；文本/图片请求会自动补 `/v1` |
-| `ZHENGAPI_API_KEY` | 空 | 全局中转站密钥，仅在节点未配置 Key 时使用 |
+| `ZHENGAPI_BASE_URL` | 空 | 文本/视频中转站根地址 |
+| `ZHENGAPI_API_KEY` | 空 | 文本/视频中转站密钥，仅在节点未配置 Key 时使用 |
 | `ZHENGAPI_USE_DATA_URLS` | `false` | 视频参考图是否直接使用 data URL，避免上传第三方图床 |
+| `GEEKNOW_BASE_URL` | 空 | 图片模型中转站根地址；自动补 `/v1` |
+| `GEEKNOW_API_KEY` | 空 | 图片模型中转站密钥，仅在图片节点未配置 Key 时使用 |
 
 ## 💬 交流反馈
 

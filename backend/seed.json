@@ -54,22 +54,18 @@
      }
    },
    "image": {
-     "model_name": "gemini-3-pro-image-preview-2k",
-     "api_channel": "NXFL",
-     "base_url": "https://api.nxfl.cc/v1",
-     "protocol": "chat",
-     "parameters": { "temperature": 0.7, "max_tokens": 32768 },
+     "model_name": "gpt-image-2",
+     "api_channel": "GeekNow",
+     "base_url": "https://www.geeknow.top/v1",
+     "protocol": "geeknow",
+     "parameters": {},
      "extra_config": {
        "models": [
-         { "name": "gemini-3.1-flash-image-preview-2k", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "protocol": "chat", "parameters": { "temperature": 0.7 }, "path": "/chat/completions" },
-         { "name": "doubao-seedream-5-0-260128", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "protocol": "edit", "parameters": { "temperature": 0.7, "supports_img2img": true } },
-         { "name": "gpt-image-2", "channel": "Local", "base_url": "http://localhost:8800/v1", "api_key": "", "protocol": "local", "parameters": { "temperature": 0.7 } },
-         { "name": "grok-imagine-1.0", "channel": "ZhengAPI", "base_url": "https://zhengapi.top/v1", "api_key": "", "protocol": "zhengapi-grok", "parameters": {} },
-         { "name": "grok-imagine-1.0-edit", "channel": "ZhengAPI", "base_url": "https://zhengapi.top/v1", "api_key": "", "protocol": "zhengapi-grok", "parameters": { "supports_img2img": true } },
-         { "name": "firefly-nano-banana", "channel": "ZhengAPI", "base_url": "https://zhengapi.top/v1", "api_key": "", "protocol": "zhengapi-firefly", "parameters": { "supports_img2img": true } },
-         { "name": "firefly-nano-banana-pro", "channel": "ZhengAPI", "base_url": "https://zhengapi.top/v1", "api_key": "", "protocol": "zhengapi-firefly", "parameters": { "supports_img2img": true } },
-         { "name": "firefly-nano-banana2", "channel": "ZhengAPI", "base_url": "https://zhengapi.top/v1", "api_key": "", "protocol": "zhengapi-firefly", "parameters": { "supports_img2img": true } },
-         { "name": "firefly-gpt-image", "channel": "ZhengAPI", "base_url": "https://zhengapi.top/v1", "api_key": "", "protocol": "zhengapi-firefly", "parameters": { "supports_img2img": true } }
+         { "name": "gpt-image-2", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": { "supports_img2img": true } },
+         { "name": "gpt-image-2-pro", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": { "supports_img2img": true } },
+         { "name": "doubao-seedream-4-0-250828", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": { "supports_img2img": true } },
+         { "name": "doubao-seedream-4-5-251128", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": { "supports_img2img": true } },
+         { "name": "doubao-seedream-5-0-260128", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": { "supports_img2img": true } }
        ]
      }
     }

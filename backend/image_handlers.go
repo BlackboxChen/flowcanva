@@ -47,9 +47,13 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 		return
 	}
 
-	baseURL, apiKey, err := h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.openai.com/v1", true)
+	baseURL, apiKey, err := h.resolveImageUpstream(req.BaseURL, req.APIKey)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if isGeekNowImageModel(req.Model) {
+		h.generateGeekNowImage(c, req, baseURL, apiKey)
 		return
 	}
 	if isFireflyImageModel(req.Model) {

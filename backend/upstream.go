@@ -6,6 +6,7 @@ import (
 )
 
 var errAPIKeyNotConfigured = errors.New("api_key 未配置，请在管理台节点配置中设置，或配置 ZHENGAPI_API_KEY")
+var errImageAPIKeyNotConfigured = errors.New("图片 api_key 未配置，请在管理台节点配置中设置，或配置 GEEKNOW_API_KEY")
 
 // resolveUpstream keeps a node's URL and key together. If a node has no key,
 // the ZhengAPI URL and key take over as one pair to avoid leaking credentials.
@@ -23,6 +24,28 @@ func (h *Handler) resolveUpstream(requestBaseURL, requestAPIKey, defaultBaseURL 
 	}
 
 	return normalizeZhengAPIBaseURL(h.cfg.ZhengAPIBaseURL, versioned), h.cfg.ZhengAPIAPIKey, nil
+}
+
+func (h *Handler) resolveImageUpstream(requestBaseURL, requestAPIKey string) (string, string, error) {
+	if strings.TrimSpace(requestAPIKey) != "" {
+		baseURL := strings.TrimRight(strings.TrimSpace(requestBaseURL), "/")
+		if baseURL == "" {
+			baseURL = "https://api.openai.com/v1"
+		}
+		return baseURL, requestAPIKey, nil
+	}
+	if h.cfg.GeekNowBaseURL == "" || h.cfg.GeekNowAPIKey == "" {
+		return "", "", errImageAPIKeyNotConfigured
+	}
+	return normalizeVersionedBaseURL(h.cfg.GeekNowBaseURL), h.cfg.GeekNowAPIKey, nil
+}
+
+func normalizeVersionedBaseURL(baseURL string) string {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if !strings.HasSuffix(strings.ToLower(baseURL), "/v1") {
+		baseURL += "/v1"
+	}
+	return baseURL
 }
 
 func normalizeZhengAPIBaseURL(baseURL string, versioned bool) string {

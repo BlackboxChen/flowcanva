@@ -18,6 +18,7 @@ func main() {
 		"db_path", cfg.DBPath,
 		"zhengapi_configured", cfg.ZhengAPIBaseURL != "" && cfg.ZhengAPIAPIKey != "",
 		"zhengapi_use_data_urls", cfg.ZhengAPIUseDataURLs,
+		"geeknow_images_configured", cfg.GeekNowBaseURL != "" && cfg.GeekNowAPIKey != "",
 	)
 
 	db, err := initDB(cfg.DBPath, logger)

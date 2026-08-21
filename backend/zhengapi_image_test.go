@@ -58,15 +58,15 @@ func TestStripDataURLPrefix(t *testing.T) {
 	}
 }
 
-func TestMergeZhengAPIImageModelsIsIdempotent(t *testing.T) {
-	raw := `{"models":[{"name":"custom-image","channel":"Custom"}],"keep":true}`
-	first, added, err := mergeZhengAPIImageModels(raw)
-	if err != nil || added != len(zhengAPIImageModels) {
-		t.Fatalf("first merge: added=%d err=%v", added, err)
+func TestMergeGeekNowImageModelsReplacesZhengAPI(t *testing.T) {
+	raw := `{"models":[{"name":"custom-image","channel":"Custom"},{"name":"firefly-gpt-image","channel":"ZhengAPI"}],"keep":true}`
+	first, added, removed, err := mergeGeekNowImageModels(raw)
+	if err != nil || added != len(geekNowImageModels) || removed != 1 {
+		t.Fatalf("first merge: added=%d removed=%d err=%v", added, removed, err)
 	}
-	second, addedAgain, err := mergeZhengAPIImageModels(first)
-	if err != nil || addedAgain != 0 {
-		t.Fatalf("second merge: added=%d err=%v", addedAgain, err)
+	second, addedAgain, removedAgain, err := mergeGeekNowImageModels(first)
+	if err != nil || addedAgain != 0 || removedAgain != 0 {
+		t.Fatalf("second merge: added=%d removed=%d err=%v", addedAgain, removedAgain, err)
 	}
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(second), &parsed); err != nil || parsed["keep"] != true {

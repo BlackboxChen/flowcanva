@@ -148,7 +148,7 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 			}
 		}
 	}
-	if err := ensureZhengAPIImageModels(db, log); err != nil {
+	if err := ensureGeekNowImageModels(db, log); err != nil {
 		return err
 	}
 
