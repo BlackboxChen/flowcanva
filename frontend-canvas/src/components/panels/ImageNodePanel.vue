@@ -24,9 +24,9 @@ const errorMessage = ref('')
 const modalOpen = ref(false)
 const images = ref<{ id: number; url: string; name?: string }[]>([])
 const generatedImages = ref<{ id: number; url: string }[]>([])
-const connectedImages = ref<Map<string, { id: number; url: string }>>(new Map())
+const connectedImages = ref<Map<string, { id: string; url: string; name: string }>>(new Map())
 let imageCounter = 0
-const previewImg = ref<{ id: number; url: string } | null>(null)
+const previewImg = ref<{ id: number | string; url: string } | null>(null)
 
 const selectedModel = ref('gpt-image-2')
 const models = ref<string[]>(['gpt-image-2'])
@@ -62,7 +62,7 @@ const showMention = ref(false)
 const mentionFilter = ref('')
 const mentionAnchor = ref<'inline' | 'modal'>('inline')
 
-const allDisplayImages = ref<{ id: number; url: string; label: string; isRef: boolean }[]>([])
+const allDisplayImages = ref<{ id: number | string; url: string; label: string; isRef: boolean }[]>([])
 let nodeInitialized = false
 
 watch(ratioOptions, (options) => {
@@ -76,9 +76,9 @@ watch(resolutionOptions, (options) => {
 })
 
 function rebuildDisplay() {
-  const list: { id: number; url: string; label: string; isRef: boolean }[] = []
+  const list: { id: number | string; url: string; label: string; isRef: boolean }[] = []
   for (const [, img] of connectedImages.value) {
-    list.push({ id: img.id, url: img.url, label: '参考', isRef: true })
+    list.push({ id: img.id, url: img.url, label: img.name, isRef: true })
   }
   for (const img of images.value) {
     list.push({ id: img.id, url: img.url, label: img.name || '上传', isRef: false })
@@ -93,8 +93,10 @@ watch(() => props.nodeInputs, (inputs) => {
     if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image') && inp.data?.dataUrl) {
       currentEdgeIds.add(inp.edgeId)
       if (!connectedImages.value.has(inp.edgeId)) {
-        imageCounter++
-        connectedImages.value.set(inp.edgeId, { id: imageCounter, url: inp.data.dataUrl })
+        const name = typeof inp.data.name === 'string' && inp.data.name.trim()
+          ? inp.data.name.trim()
+          : `参考-${inp.sourceNodeId.slice(-6)}`
+        connectedImages.value.set(inp.edgeId, { id: inp.sourceNodeId, url: inp.data.dataUrl, name })
       }
     }
   }
@@ -289,14 +291,46 @@ function insertMention(img: { id: any; name: string; src: string }) {
   const text = node.textContent || ''; const pos = range.startOffset
   const m = text.slice(0, pos).match(/@([^\s@]*)$/); if (!m) return
   range.setStart(node, pos - m[0].length); range.setEnd(node, pos); range.deleteContents()
+  if (!allDisplayImages.value.some(item => item.url === img.src)) {
+    imageCounter++
+    images.value.push({ id: imageCounter, name: img.name, url: img.src })
+    rebuildDisplay()
+  }
   const chip = document.createElement('span')
   chip.className = 'inline-flex items-center gap-0.5 align-middle'; chip.contentEditable = 'false'
-  chip.innerHTML = `<img src="${img.src}" class="inline w-4 h-4 rounded object-cover" /><span class="text-blue-400">@${img.name}</span>`
+  const thumbnail = document.createElement('img')
+  thumbnail.src = img.src
+  thumbnail.className = 'inline w-4 h-4 rounded object-cover'
+  const label = document.createElement('span')
+  label.className = 'text-blue-400'
+  label.textContent = `@${img.name}`
+  chip.append(thumbnail, label)
+  chip.setAttribute('data-mention-id', String(img.id))
   chip.setAttribute('data-mention', img.name)
   const space = document.createTextNode(' ')
   range.insertNode(space); range.insertNode(chip)
   sel.removeAllRanges(); range.setStartAfter(space); range.collapse(true); sel.addRange(range)
   showMention.value = false; syncPrompt(mentionAnchor.value)
+}
+
+function promptForRequest(): string {
+  if (!promptHtml.value) return prompt.value
+  const container = document.createElement('div')
+  container.innerHTML = promptHtml.value
+  const references = allDisplayImages.value
+  for (const mention of container.querySelectorAll<HTMLElement>('[data-mention]')) {
+    const mentionId = mention.dataset.mentionId
+    let index = mentionId ? references.findIndex(image => String(image.id) === mentionId) : -1
+    if (index < 0) {
+      const src = mention.querySelector('img')?.getAttribute('src')
+      if (src) index = references.findIndex(image => image.url === src)
+    }
+    const replacement = index >= 0
+      ? `参考图${index + 1}（${references[index].label}）`
+      : (mention.dataset.mention || mention.textContent || '参考图')
+    mention.replaceWith(document.createTextNode(replacement))
+  }
+  return (container.textContent || prompt.value).trim()
 }
 
 async function generate() {
@@ -314,7 +348,7 @@ async function generate() {
     // 确保最少像素（doubao 需要 ~3.7M）
     while (w * h < 3686400) { w = Math.round(w * 1.3); h = Math.round(h * 1.3) }
     const size = `${w}x${h}`
-    const body: Record<string, any> = { model: selectedModel.value, prompt: prompt.value, n: selectedCount.value, size, aspect_ratio: selectedRatio.value, image_size: selectedResolution.value }
+    const body: Record<string, any> = { model: selectedModel.value, prompt: promptForRequest(), n: selectedCount.value, size, aspect_ratio: selectedRatio.value, image_size: selectedResolution.value }
     if (modelConfig) {
       if (modelConfig.channel) body.channel = modelConfig.channel
       if (modelConfig.base_url) body.base_url = modelConfig.base_url
@@ -327,6 +361,8 @@ async function generate() {
     for (const [, img] of connectedImages.value) refImages.push(img.url)
     for (const img of images.value) refImages.push(img.url)
     if (refImages.length > 0) {
+      body.images = refImages
+      // 兼容仍只接收单图字段的旧渠道。
       body.image = refImages[0]
       body.path = '/images/edits'
     }
@@ -356,7 +392,7 @@ async function generate() {
   } finally { loading.value = false }
 }
 
-function removeGenerated(img: { id: number; url: string }) {
+function removeGenerated(img: { id: number | string; url: string }) {
   generatedImages.value = generatedImages.value.filter(i => i.id !== img.id)
   rebuildDisplay()
   emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))

@@ -37,8 +37,22 @@ func (h *Handler) generateGeekNowImage(c *gin.Context, req ImageGenRequest, base
 		"size":            size,
 		"response_format": "url",
 	}
-	if req.Image != "" {
-		payload["image"] = []string{stripDataURLPrefix(req.Image)}
+	references := req.Images
+	if len(references) == 0 && req.Image != "" {
+		references = []string{req.Image}
+	}
+	if len(references) > 0 {
+		images := make([]string, 0, len(references))
+		for _, image := range references {
+			if image = strings.TrimSpace(image); image != "" {
+				images = append(images, stripDataURLPrefix(image))
+			}
+		}
+		if len(images) == 0 {
+			h.generateGeekNowImageAsync(c, strings.TrimRight(baseURL, "/"), apiKey, payload)
+			return
+		}
+		payload["image"] = images
 		// GeekNow 异步入口不接受 data URL 参考图，编辑任务继续使用同步兼容接口。
 		h.proxyImageJSON(c, baseURL+"/images/generations", apiKey, payload)
 		return

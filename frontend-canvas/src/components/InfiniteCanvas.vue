@@ -129,6 +129,17 @@ interface InputData {
   sourceNodeType: string
   data: any
 }
+
+function referenceName(source: Node, parsed: any): string {
+  const candidates = [parsed?.name, parsed?.title, parsed?.filename, parsed?.prompt]
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue
+    const firstLine = candidate.split(/\r?\n/, 1)[0].trim()
+    if (firstLine) return firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
+  }
+  return `参考-${source.id.slice(-6)}`
+}
+
 const nodeInputs = computed(() => {
   const map: Record<string, InputData[]> = {}
   for (const edge of props.edges) {
@@ -142,7 +153,7 @@ const nodeInputs = computed(() => {
       try {
         const parsed = JSON.parse(source.content)
         const gens = parsed.generated_images || []
-        data = gens.length > 0 ? { dataUrl: gens[0].url } : null
+        data = gens.length > 0 ? { dataUrl: gens[0].url, name: referenceName(source, parsed) } : null
       } catch { /* keep raw */ }
     }
     if (source.node_type === 'video' && source.content) {

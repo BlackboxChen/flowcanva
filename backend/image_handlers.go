@@ -12,18 +12,19 @@ import (
 )
 
 type ImageGenRequest struct {
-	Model       string `json:"model"`
-	Prompt      string `json:"prompt"`
-	N           int    `json:"n"`
-	Size        string `json:"size"`
-	AspectRatio string `json:"aspect_ratio"`
-	ImageSize   string `json:"image_size"`
-	Image       string `json:"image"`
-	Path        string `json:"path"`
-	Protocol    string `json:"protocol,omitempty"`
-	Channel     string `json:"channel,omitempty"`
-	BaseURL     string `json:"base_url,omitempty"`
-	APIKey      string `json:"api_key,omitempty"`
+	Model       string   `json:"model"`
+	Prompt      string   `json:"prompt"`
+	N           int      `json:"n"`
+	Size        string   `json:"size"`
+	AspectRatio string   `json:"aspect_ratio"`
+	ImageSize   string   `json:"image_size"`
+	Image       string   `json:"image"`
+	Images      []string `json:"images"`
+	Path        string   `json:"path"`
+	Protocol    string   `json:"protocol,omitempty"`
+	Channel     string   `json:"channel,omitempty"`
+	BaseURL     string   `json:"base_url,omitempty"`
+	APIKey      string   `json:"api_key,omitempty"`
 }
 
 // mapProtocol 将前端协议的语义值映射为实际 API 路径

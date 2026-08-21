@@ -9,7 +9,7 @@ interface MentionImage {
 }
 
 const props = defineProps<{
-  connectedImages: { id: number; name: string; dataUrl: string }[]
+  connectedImages: { id: number | string; name: string; dataUrl: string }[]
   filter: string
 }>()
 
