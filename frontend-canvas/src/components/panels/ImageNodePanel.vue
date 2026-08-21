@@ -15,7 +15,7 @@ const emit = defineEmits<{
   (e: 'remove-connected-edge', edgeId: string): void
 }>()
 
-const { getModels, getModelConfig } = useNodeConfigs()
+const { modelInfoMap, getModels, getModelConfig } = useNodeConfigs()
 
 const prompt = ref('')
 const promptHtml = ref('')
@@ -28,8 +28,8 @@ const connectedImages = ref<Map<string, { id: number; url: string }>>(new Map())
 let imageCounter = 0
 const previewImg = ref<{ id: number; url: string } | null>(null)
 
-const selectedModel = ref('dall-e-3')
-const models = ref<string[]>(['dall-e-3'])
+const selectedModel = ref('gpt-image-2')
+const models = ref<string[]>(['gpt-image-2'])
 const selectedRatio = ref('1:1')
 const selectedResolution = ref('1K')
 const selectedCount = ref(1)
@@ -105,13 +105,19 @@ watch(() => props.nodeInputs, (inputs) => {
   rebuildDisplay()
 }, { immediate: true, deep: true })
 
+function syncModels() {
+  if (!props.node) return
+  const typeModels = getModels(props.node.node_type)
+  models.value = typeModels.length > 0 ? typeModels : ['gpt-image-2']
+  if (!models.value.includes(selectedModel.value)) {
+    selectedModel.value = models.value[0] || 'gpt-image-2'
+  }
+}
+
+watch([() => props.node?.node_type, modelInfoMap], syncModels, { immediate: true })
+
 watch(() => props.node, (n) => {
   if (n) {
-    const typeModels = getModels(n.node_type)
-    models.value = typeModels.length > 0 ? typeModels : ['dall-e-3']
-    if (!models.value.includes(selectedModel.value)) {
-      selectedModel.value = models.value[0] || 'dall-e-3'
-    }
     try {
       const data = n.content ? JSON.parse(n.content) : null
       if (data) {

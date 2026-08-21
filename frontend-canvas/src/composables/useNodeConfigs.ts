@@ -45,7 +45,13 @@ const modelInfoMap = ref<Record<string, ModelInfo[]>>({})
 const roleMap = ref<Record<string, RoleInfo[]>>({})
 const loading = ref(false)
 
-const FALLBACK_NAMES = ['GPT-4', 'Claude 3', 'Gemini']
+const FALLBACK_NAMES: Record<string, string[]> = {
+  image: ['gpt-image-2'],
+  video: ['doubao-seedance-2-0-260128'],
+  text: ['GPT-4', 'Claude 3', 'Gemini'],
+  agent: ['GPT-4', 'Claude 3', 'Gemini'],
+  table: ['GPT-4', 'Claude 3', 'Gemini'],
+}
 
 export function useNodeConfigs() {
   async function load() {
@@ -95,7 +101,8 @@ export function useNodeConfigs() {
           roleMap.value[c.node_type] = extraRoles
         } catch { /* ignore */ }
 
-        miMap[c.node_type] = list
+        // extra_config 通常包含同名模型的协议等完整信息，后出现的配置覆盖基础项。
+        miMap[c.node_type] = [...new Map(list.map(model => [model.name, model])).values()]
       }
 
       configMap.value = cMap
@@ -116,7 +123,7 @@ export function useNodeConfigs() {
   function getModels(nodeType: string): string[] {
     const list = modelInfoMap.value[nodeType]
     if (list && list.length > 0) return list.map(m => m.name)
-    return FALLBACK_NAMES
+    return FALLBACK_NAMES[nodeType] || []
   }
 
   function getModelConfig(nodeType: string, modelName: string): ModelInfo | null {
