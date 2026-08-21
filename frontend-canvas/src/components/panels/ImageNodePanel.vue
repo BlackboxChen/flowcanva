@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import type { Node } from '../../types'
 import MentionDropdown from '../MentionDropdown.vue'
 import { useNodeConfigs } from '../../composables/useNodeConfigs'
@@ -34,9 +34,16 @@ const selectedResolution = ref('1K')
 const selectedCount = ref(1)
 const selectedPreset = ref('')
 
-const ratioOptions = ['自适应', '1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '5:4', '4:5', '21:9']
+const defaultRatioOptions = ['自适应', '1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '5:4', '4:5', '21:9']
+const ratioOptions = computed(() => {
+  const model = selectedModel.value
+  if (model.startsWith('firefly-gpt-image')) return ['自适应', '1:1', '16:9', '9:16', '21:9', '4:3', '3:2', '2:3', '5:4', '4:5', '3:4']
+  if (model.startsWith('firefly-nano-banana2')) return ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '3:2', '2:3', '5:4', '4:5', '8:1', '1:4', '1:8']
+  if (model.startsWith('firefly-nano-banana')) return ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '5:4', '4:5']
+  return defaultRatioOptions
+})
 const resolutionOptions = ['1K', '2K', '4K']
-const countOptions = [1, 2, 4]
+const countOptions = computed(() => selectedModel.value.startsWith('firefly-') ? [1] : [1, 2, 4])
 
 const presets = ref<{ id: string; name: string; prompt: string; category: string; scope: string }[]>([])
 const presetCategories = ref<string[]>([])
@@ -48,6 +55,13 @@ const mentionFilter = ref('')
 const mentionAnchor = ref<'inline' | 'modal'>('inline')
 
 const allDisplayImages = ref<{ id: number; url: string; label: string; isRef: boolean }[]>([])
+
+watch(ratioOptions, (options) => {
+  if (!options.includes(selectedRatio.value)) selectedRatio.value = options[0]
+})
+watch(countOptions, (options) => {
+  if (!options.includes(selectedCount.value)) selectedCount.value = options[0]
+})
 
 function rebuildDisplay() {
   const list: { id: number; url: string; label: string; isRef: boolean }[] = []
@@ -168,7 +182,7 @@ function compressImage(dataUrl: string): Promise<string> {
       else if (h > max) { w = Math.round(w * max / h); h = max }
       const c = document.createElement('canvas'); c.width = w; c.height = h
       c.getContext('2d')!.drawImage(img, 0, 0, w, h)
-      resolve(c.toDataURL('image/jpeg', 0.7))
+      resolve(c.toDataURL('image/jpeg', 0.85))
     }
     img.onerror = () => resolve(dataUrl)
     img.src = dataUrl
@@ -292,7 +306,12 @@ async function generate() {
     }
     const data = await res.json()
     if (data.data && Array.isArray(data.data)) {
-      for (let i = 0; i < data.data.length; i++) generatedImages.value.push({ id: Date.now() + i, url: data.data[i].url || data.data[i].b64_json || '' })
+      for (let i = 0; i < data.data.length; i++) {
+        const item = data.data[i]
+        const b64 = item.b64_json
+        const url = item.url || (b64 ? (b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`) : '')
+        generatedImages.value.push({ id: Date.now() + i, url })
+      }
     }
     emit('save', buildContent({ images: images.value, generated_images: generatedImages.value }))
   } catch (e: any) {

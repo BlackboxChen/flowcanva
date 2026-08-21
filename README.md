@@ -175,6 +175,15 @@ flowcanva/
 
 > 节点自身配置了 API Key 时，始终使用该节点的 Key 与 Base URL。节点未配置 Key 时，才成对使用 `ZHENGAPI_API_KEY` 与 `ZHENGAPI_BASE_URL`，避免把中转密钥发送给其他服务。
 
+### ZhengAPI 图片模型
+
+图片节点内置以下 ZhengAPI 模型：
+
+- Grok：`grok-imagine-1.0`、`grok-imagine-1.0-edit`
+- Firefly：`firefly-nano-banana`、`firefly-nano-banana-pro`、`firefly-nano-banana2`、`firefly-gpt-image`
+
+Firefly 会按画布中选择的分辨率和宽高比自动生成完整模型 ID，例如 `firefly-nano-banana-2k-16x9`。Grok 和 Firefly 的图生图字段及响应协议由后端自动转换。
+
 ### 安全提醒
 
 - `data.db` 中的 Key 为本地存储，建议设置文件权限

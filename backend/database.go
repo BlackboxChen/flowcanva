@@ -21,7 +21,7 @@ func initDB(path string, log *slog.Logger) (*sql.DB, error) {
 		return nil, err
 	}
 
-		if err := migrate(db, log); err != nil {
+	if err := migrate(db, log); err != nil {
 		return nil, err
 	}
 
@@ -147,6 +147,9 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 				}
 			}
 		}
+	}
+	if err := ensureZhengAPIImageModels(db, log); err != nil {
+		return err
 	}
 
 	// ensure upload dir exists

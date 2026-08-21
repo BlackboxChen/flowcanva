@@ -52,6 +52,14 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if isFireflyImageModel(req.Model) {
+		h.generateFireflyImage(c, req, baseURL, apiKey)
+		return
+	}
+	if isGrokImageModel(req.Model) {
+		h.generateGrokImage(c, req, baseURL, apiKey)
+		return
+	}
 
 	apiPath := req.Path
 	if apiPath == "" {
@@ -107,34 +115,6 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 	httpReq.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-	bodyMap := map[string]interface{}{
-		"model":  req.Model,
-		"prompt": req.Prompt,
-		"n":      req.N,
-		"size":   req.Size,
-	}
-	if req.N <= 0 {
-		bodyMap["n"] = 1
-	}
-	if req.Size == "" {
-		bodyMap["size"] = "1024x1024"
-	}
-	if req.Image != "" {
-		bodyMap["image"] = req.Image
-	}
-	if req.AspectRatio != "" {
-		bodyMap["aspect_ratio"] = req.AspectRatio
-	}
-	if req.ImageSize != "" {
-		bodyMap["image_size"] = req.ImageSize
-	}
-	// 计算 size (WxH) 格式：用于 chatgpt2api 等本地 API
-	if req.Size == "" && req.AspectRatio != "" {
-		size := computeSize(req.AspectRatio, req.ImageSize)
-		if size != "" {
-			bodyMap["size"] = size
-		}
 	}
 
 	resp, err := llmClient.Do(httpReq)
