@@ -124,6 +124,10 @@ watch(() => props.node, (n) => {
       if (data) {
         prompt.value = data.prompt || ''
         promptHtml.value = data.promptHtml || ''
+        if (typeof data.model === 'string' && data.model) selectedModel.value = data.model
+        if (typeof data.aspect_ratio === 'string' && ratioOptions.value.includes(data.aspect_ratio)) selectedRatio.value = data.aspect_ratio
+        if (typeof data.image_size === 'string' && resolutionOptions.value.includes(data.image_size)) selectedResolution.value = data.image_size
+        if (typeof data.n === 'number' && countOptions.value.includes(data.n)) selectedCount.value = data.n
         images.value = data.images || []
         generatedImages.value = data.generated_images || []
         errorMessage.value = typeof data._error === 'string' ? data._error : ''
@@ -193,7 +197,15 @@ function syncPrompt(anchor?: 'inline' | 'modal') {
 }
 
 function buildContent(extras: Record<string, any> = {}) {
-  return JSON.stringify({ prompt: prompt.value, promptHtml: promptHtml.value, ...extras })
+  return JSON.stringify({
+    prompt: prompt.value,
+    promptHtml: promptHtml.value,
+    model: selectedModel.value,
+    aspect_ratio: selectedRatio.value,
+    image_size: selectedResolution.value,
+    n: selectedCount.value,
+    ...extras,
+  })
 }
 
 function compressImage(dataUrl: string): Promise<string> {
