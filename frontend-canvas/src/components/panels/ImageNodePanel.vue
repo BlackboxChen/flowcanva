@@ -296,7 +296,7 @@ function onAddImage() {
         compressImage(reader.result as string).then(compressed => {
           images.value.push({ id, name, url: compressed })
           rebuildDisplay()
-          emit('save', JSON.stringify({ prompt: prompt.value, images: images.value, generated_images: generatedImages.value }))
+          emit('save', buildContent({ images: images.value, generated_images: generatedImages.value }))
         })
       }
       reader.readAsDataURL(file)

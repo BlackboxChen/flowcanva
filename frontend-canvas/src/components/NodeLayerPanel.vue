@@ -48,9 +48,12 @@ const nodeOrder = computed(() => {
 function nodeLabel(n: Node): string {
   const label = NODE_LABELS[n.node_type] || n.node_type
   const order = nodeOrder.value[n.id] || 0
-  // 优先取 content 中的 name 字段
+  // 图片/视频节点优先显示自定义 displayName，保留类型和序号便于定位
   try {
     const c = JSON.parse(n.content || '{}')
+    if ((n.node_type === 'image' || n.node_type === 'video') && c.displayName) {
+      return `${label} ${order}｜${c.displayName}`
+    }
     if (c.name) return c.name
   } catch {}
   return `${label} ${order}`
