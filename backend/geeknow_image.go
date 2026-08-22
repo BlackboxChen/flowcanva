@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -42,22 +43,46 @@ func (h *Handler) generateGeekNowImage(c *gin.Context, req ImageGenRequest, base
 		references = []string{req.Image}
 	}
 	if len(references) > 0 {
-		images := make([]string, 0, len(references))
-		for _, image := range references {
-			if image = strings.TrimSpace(image); image != "" {
-				images = append(images, stripDataURLPrefix(image))
-			}
-		}
-		if len(images) == 0 {
-			h.generateGeekNowImageAsync(c, strings.TrimRight(baseURL, "/"), apiKey, payload)
-			return
-		}
-		payload["image"] = images
-		// GeekNow 异步入口不接受 data URL 参考图，编辑任务继续使用同步兼容接口。
-		h.proxyImageJSON(c, baseURL+"/images/generations", apiKey, payload)
+		req.Size = size
+		h.generateGeekNowImageEdit(c, req, references, strings.TrimRight(baseURL, "/"), apiKey)
 		return
 	}
 	h.generateGeekNowImageAsync(c, strings.TrimRight(baseURL, "/"), apiKey, payload)
+}
+
+func (h *Handler) generateGeekNowImageEdit(c *gin.Context, req ImageGenRequest, references []string, baseURL, apiKey string) {
+	body, contentType, err := writeImageEditMultipart(c.Request.Context(), req, references)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	defer func() {
+		body.Close()
+		_ = os.Remove(body.Name())
+	}()
+
+	httpReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+"/images/edits", body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if info, statErr := body.Stat(); statErr == nil {
+		httpReq.ContentLength = info.Size()
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	httpReq.Header.Set("Content-Type", contentType)
+	response, err := imageGenerationClient.Do(httpReq)
+	if err != nil {
+		h.log.Error("geeknow image edit failed", "error", err, "references", len(references))
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	defer response.Body.Close()
+	responseBody, _ := io.ReadAll(response.Body)
+	if response.StatusCode >= 400 {
+		h.log.Error("geeknow image edit api error", "status", response.StatusCode, "references", len(references))
+	}
+	c.Data(response.StatusCode, "application/json", responseBody)
 }
 
 func (h *Handler) generateGeekNowImageAsync(c *gin.Context, baseURL, apiKey string, payload map[string]any) {

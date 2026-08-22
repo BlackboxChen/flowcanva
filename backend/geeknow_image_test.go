@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -36,14 +36,28 @@ func TestGeekNowImageSizeRejectsUnsupportedRatio(t *testing.T) {
 }
 
 func TestGenerateGeekNowImagePreservesAllReferences(t *testing.T) {
-	var payload map[string]any
+	const firstImage = "first-reference"
+	const secondImage = "second-reference"
+	referenceServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = io.WriteString(w, secondImage)
+	}))
+	defer referenceServer.Close()
+
+	var fields map[string]string
+	var images []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/images/generations" {
+		if r.URL.Path != "/v1/images/edits" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode payload: %v", err)
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data;") {
+			t.Fatalf("unexpected content type: %s", r.Header.Get("Content-Type"))
 		}
+		reader, err := r.MultipartReader()
+		if err != nil {
+			t.Fatal(err)
+		}
+		fields, images = readImageEditParts(t, reader)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"data":[{"url":"https://cdn.example/result.png"}]}`)
 	}))
@@ -59,25 +73,68 @@ func TestGenerateGeekNowImagePreservesAllReferences(t *testing.T) {
 		Prompt:      "combine references",
 		AspectRatio: "1:1",
 		ImageSize:   "1K",
-		Image:       "legacy-reference",
 		Images: []string{
-			"data:image/png;base64,first-reference",
-			"https://cdn.example/second.png",
-			"third-reference",
+			"data:image/png;base64,Zmlyc3QtcmVmZXJlbmNl",
+			referenceServer.URL + "/second.png",
 		},
 	}, upstream.URL+"/v1", "test-key")
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected response: code=%d body=%s", recorder.Code, recorder.Body.String())
 	}
-	images, ok := payload["image"].([]any)
-	if !ok || len(images) != 3 {
-		t.Fatalf("references were not preserved: %#v", payload["image"])
+	if fields["model"] != "gpt-image-2" || fields["prompt"] != "combine references" || fields["size"] != "1024x1024" {
+		t.Fatalf("unexpected fields: %#v", fields)
 	}
-	want := []string{"first-reference", "https://cdn.example/second.png", "third-reference"}
+	if len(images) != 2 {
+		t.Fatalf("unexpected image count: %d", len(images))
+	}
+	want := []string{firstImage, secondImage}
 	for i, value := range want {
 		if images[i] != value {
-			t.Fatalf("reference %d: got=%#v want=%q", i, images[i], value)
+			t.Fatalf("reference %d: got=%q want=%q", i, images[i], value)
 		}
+	}
+}
+
+func readImageEditParts(t *testing.T, reader *multipart.Reader) (map[string]string, []string) {
+	t.Helper()
+	fields := map[string]string{}
+	var images []string
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(part)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if part.FormName() == "image[]" {
+			images = append(images, string(data))
+		} else {
+			fields[part.FormName()] = string(data)
+		}
+	}
+	return fields, images
+}
+
+func TestGenerateGeekNowImageRejectsTooManyReferences(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/images/generate", strings.NewReader(`{}`))
+	h := &Handler{log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	references := make([]string, maxImageReferences+1)
+	for i := range references {
+		references[i] = "data:image/png;base64,WA=="
+	}
+	h.generateGeekNowImage(ctx, ImageGenRequest{
+		Model: "gpt-image-2", Prompt: "test", AspectRatio: "1:1", ImageSize: "1K", Images: references,
+	}, "http://unused", "test-key")
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected response: code=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }

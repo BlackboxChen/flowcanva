@@ -326,7 +326,7 @@ function promptForRequest(): string {
       if (src) index = references.findIndex(image => image.url === src)
     }
     const replacement = index >= 0
-      ? `参考图${index + 1}（${references[index].label}）`
+      ? `[image ${index + 1}]（${references[index].label}）`
       : (mention.dataset.mention || mention.textContent || '参考图')
     mention.replaceWith(document.createTextNode(replacement))
   }
@@ -360,6 +360,7 @@ async function generate() {
     const refImages: string[] = []
     for (const [, img] of connectedImages.value) refImages.push(img.url)
     for (const img of images.value) refImages.push(img.url)
+    if (refImages.length > 16) throw new Error('参考图最多支持 16 张，请删除多余图片后重试')
     if (refImages.length > 0) {
       body.images = refImages
       // 兼容仍只接收单图字段的旧渠道。
