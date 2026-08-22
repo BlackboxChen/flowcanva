@@ -228,12 +228,12 @@ function onAddImage() {
   input.onchange = () => {
     if (!input.files) return
     for (const file of input.files) {
-      imageCounter++
-      const name = `图片${imageCounter}`
+      const id = ++imageCounter
+      const name = `图片${id}`
       const reader = new FileReader()
       reader.onload = () => {
         compressImage(reader.result as string).then(compressed => {
-          images.value.push({ id: imageCounter, name, url: compressed })
+          images.value.push({ id, name, url: compressed })
           rebuildDisplay()
           emit('save', JSON.stringify({ prompt: prompt.value, images: images.value, generated_images: generatedImages.value }))
         })
@@ -389,8 +389,9 @@ async function generate() {
   } finally { loading.value = false }
 }
 
-function removeGenerated(img: { id: number | string; url: string }) {
-  generatedImages.value = generatedImages.value.filter(i => i.id !== img.id)
+function removeReference(img: { id: number | string; url: string }) {
+  images.value = images.value.filter(image => image.id !== img.id)
+  if (previewImg.value?.id === img.id) previewImg.value = null
   rebuildDisplay()
   emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
 }
@@ -458,7 +459,7 @@ watch(modalOpen, async (v) => {
         <div v-for="img in allDisplayImages" :key="img.id" class="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/15 cursor-pointer hover:border-white/50 transition-colors" @click.stop="previewImg = img">
           <img :src="img.url" class="w-full h-full object-cover" />
           <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.label }}</span>
-          <button v-if="!img.isRef" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" @click.stop="removeGenerated({ id: img.id, url: img.url })">×</button>
+          <button v-if="!img.isRef" type="button" class="absolute top-0 right-0 z-10 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" title="删除参考图" @pointerdown.stop @click.stop="removeReference({ id: img.id, url: img.url })">×</button>
         </div>
         <button class="shrink-0 w-10 h-10 rounded-lg border border-white/15 flex flex-col items-center justify-center text-white/40 hover:text-white/60 hover:border-white/25 transition-colors gap-0.5" @click="onAddImage">
           <span class="text-sm leading-none">+</span>
