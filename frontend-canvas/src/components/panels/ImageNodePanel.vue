@@ -3,6 +3,7 @@ import { computed, ref, watch, nextTick } from 'vue'
 import type { Node } from '../../types'
 import MentionDropdown from '../MentionDropdown.vue'
 import { useNodeConfigs } from '../../composables/useNodeConfigs'
+import { loadImagePresets } from '../../composables/useImagePresets'
 
 const props = defineProps<{
   node: Node | null
@@ -177,12 +178,7 @@ watch(prompt, () => {
 async function loadPresets() {
   if (!props.node?.canvas_id) return
   try {
-    const [globalRes, canvasRes] = await Promise.all([
-      fetch('/api/admin/presets?scope=global'),
-      fetch(`/api/admin/presets?scope=canvas&canvas_id=${props.node.canvas_id}`),
-    ])
-    const g = await globalRes.json(); const c = await canvasRes.json()
-    const all = [...(Array.isArray(c) ? c : []), ...(Array.isArray(g) ? g : [])].filter((p: any) => (p.preset_type || 'image') === 'image')
+    const all = await loadImagePresets(props.node.canvas_id)
     presets.value = all
     presetCategories.value = [...new Set(all.map((p: any) => p.category))]
   } catch {}

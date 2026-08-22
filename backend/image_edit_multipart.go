@@ -11,6 +11,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -98,6 +99,9 @@ func openImageReference(ctx context.Context, value string) (imageReference, erro
 	if strings.HasPrefix(value, "data:") {
 		return openDataImage(value)
 	}
+	if strings.HasPrefix(value, "/uploads/") {
+		return openLocalImage(value)
+	}
 	parsed, err := url.Parse(value)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return imageReference{}, fmt.Errorf("只支持 HTTP(S) 图片地址或完整 Data URL")
@@ -120,6 +124,33 @@ func openImageReference(ctx context.Context, value string) (imageReference, erro
 		return imageReference{}, fmt.Errorf("响应不是图片: %s", contentType)
 	}
 	return imageReference{reader: response.Body, contentType: contentType, extension: imageExtension(contentType)}, nil
+}
+
+func openLocalImage(value string) (imageReference, error) {
+	relative := filepath.Clean(strings.TrimPrefix(value, "/uploads/"))
+	if relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+		return imageReference{}, fmt.Errorf("无效的本地图片路径")
+	}
+	file, err := os.Open(filepath.Join("uploads", relative))
+	if err != nil {
+		return imageReference{}, err
+	}
+	buffer := make([]byte, 512)
+	read, readErr := file.Read(buffer)
+	if readErr != nil && readErr != io.EOF {
+		file.Close()
+		return imageReference{}, readErr
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		file.Close()
+		return imageReference{}, err
+	}
+	contentType := http.DetectContentType(buffer[:read])
+	if !strings.HasPrefix(contentType, "image/") {
+		file.Close()
+		return imageReference{}, fmt.Errorf("本地文件不是图片")
+	}
+	return imageReference{reader: file, contentType: contentType, extension: imageExtension(contentType)}, nil
 }
 
 func openDataImage(value string) (imageReference, error) {

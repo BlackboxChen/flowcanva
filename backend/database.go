@@ -157,6 +157,9 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 
 	// ensure upload dir exists
 	_ = os.MkdirAll("uploads", 0755)
+	if err := migrateEmbeddedNodeMedia(db, log); err != nil {
+		return err
+	}
 
 	// backward-compat: add category/tags columns to existing assets table
 	addColsIfMissing(db, "assets", []string{"category TEXT NOT NULL DEFAULT '其他'", "tags TEXT NOT NULL DEFAULT '[]'"})

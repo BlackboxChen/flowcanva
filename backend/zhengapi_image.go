@@ -94,6 +94,14 @@ func (h *Handler) generateFireflyImage(c *gin.Context, req ImageGenRequest, base
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
+	if strings.HasPrefix(imageURL, "data:image/") {
+		imageURL, err = persistEmbeddedImage(imageURL)
+		if err != nil {
+			h.log.Error("firefly image save failed", "error", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "生成图片保存失败"})
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{"data": []gin.H{{"url": imageURL}}})
 }
 
@@ -116,8 +124,16 @@ func (h *Handler) proxyImageJSON(c *gin.Context, endpoint, apiKey string, payloa
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		h.log.Error("image api error", "status", resp.StatusCode)
+		c.Data(resp.StatusCode, "application/json", respBody)
+		return
 	}
-	c.Data(resp.StatusCode, "application/json", respBody)
+	materialized, err := materializeImageResponse(respBody)
+	if err != nil {
+		h.log.Error("image response materialization failed", "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "生成图片保存失败"})
+		return
+	}
+	c.Data(resp.StatusCode, "application/json", materialized)
 }
 
 func buildFireflyModelID(model, resolution, ratio string) (string, error) {

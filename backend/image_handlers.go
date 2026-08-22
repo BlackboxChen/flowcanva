@@ -133,8 +133,16 @@ func (h *Handler) GenerateImage(c *gin.Context) {
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		h.log.Error("image gen api error", "status", resp.StatusCode, "body", string(respBody))
+		c.Data(resp.StatusCode, "application/json", respBody)
+		return
 	}
-	c.Data(resp.StatusCode, "application/json", respBody)
+	materialized, err := materializeImageResponse(respBody)
+	if err != nil {
+		h.log.Error("image response materialization failed", "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "生成图片保存失败"})
+		return
+	}
+	c.Data(resp.StatusCode, "application/json", materialized)
 }
 
 func computeSize(ratio string, resolution string) string {

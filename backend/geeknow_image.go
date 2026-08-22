@@ -81,8 +81,16 @@ func (h *Handler) generateGeekNowImageEdit(c *gin.Context, req ImageGenRequest, 
 	responseBody, _ := io.ReadAll(response.Body)
 	if response.StatusCode >= 400 {
 		h.log.Error("geeknow image edit api error", "status", response.StatusCode, "references", len(references))
+		c.Data(response.StatusCode, "application/json", responseBody)
+		return
 	}
-	c.Data(response.StatusCode, "application/json", responseBody)
+	materialized, err := materializeImageResponse(responseBody)
+	if err != nil {
+		h.log.Error("geeknow image response materialization failed", "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "生成图片保存失败"})
+		return
+	}
+	c.Data(response.StatusCode, "application/json", materialized)
 }
 
 func (h *Handler) generateGeekNowImageAsync(c *gin.Context, baseURL, apiKey string, payload map[string]any) {
@@ -101,6 +109,23 @@ func (h *Handler) generateGeekNowImageAsync(c *gin.Context, baseURL, apiKey stri
 		return
 	}
 	h.log.Info("geeknow image task completed", "task_id", task, "images", len(result.Data))
+	for index := range result.Data {
+		if result.Data[index].B64JSON == "" {
+			continue
+		}
+		raw := result.Data[index].B64JSON
+		if !strings.HasPrefix(raw, "data:") {
+			raw = "data:image/png;base64," + raw
+		}
+		url, saveErr := persistEmbeddedImage(raw)
+		if saveErr != nil {
+			h.log.Error("geeknow async image save failed", "error", saveErr)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "生成图片保存失败"})
+			return
+		}
+		result.Data[index].URL = url
+		result.Data[index].B64JSON = ""
+	}
 	c.JSON(http.StatusOK, result)
 }
 
