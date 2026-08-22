@@ -65,7 +65,7 @@ function selectImg(item: { id: any; name: string; src: string }) {
 </script>
 
 <template>
-  <div class="absolute bottom-full left-0 mb-1 bg-neutral-800 border border-white/15 rounded-lg py-1 min-w-[240px] max-h-[360px] flex flex-col z-30 shadow-sm">
+  <div class="absolute bottom-full left-0 z-[1000] mb-1 min-w-[240px] max-h-[360px] flex flex-col rounded-lg border border-white/15 bg-neutral-800 py-1 shadow-xl">
     <!-- 已连节点（固定高度） -->
     <div class="shrink-0">
       <div class="px-2 pt-1 pb-0.5 text-[10px] text-white/40 uppercase tracking-wide">已连节点</div>

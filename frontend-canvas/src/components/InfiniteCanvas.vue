@@ -86,6 +86,10 @@ const CONTENT_MARGIN = 8
 // 面板贴合选中节点底部（世界坐标）
 const PANEL_GAP = 12
 const PANEL_EXTRA_W = 160
+const panelZIndex = computed(() => {
+  const highestNodeZ = Math.max(0, ...Object.values(props.nodeZIndices))
+  return String(highestNodeZ + 1000)
+})
 const panelStyle = computed(() => {
   const node = props.selectedNode
   if (!node) return { display: 'none', position: '', left: '', top: '', width: '', zIndex: '' }
@@ -103,7 +107,7 @@ const panelStyle = computed(() => {
     left: `${x - PANEL_EXTRA_W / 2}px`,
     top: `${y + PANEL_GAP}px`,
     width: `${pw}px`,
-    zIndex: '50',
+    zIndex: panelZIndex.value,
   }
 })
 
@@ -118,7 +122,7 @@ function taskPanelStyle(node: Node): Record<string, string> {
     left: `${node.x - PANEL_EXTRA_W / 2}px`,
     top: `${node.y + node.height + PANEL_GAP}px`,
     width: `${pw}px`,
-    zIndex: '50',
+    zIndex: panelZIndex.value,
   }
 }
 
