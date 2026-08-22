@@ -63,7 +63,14 @@ const showMention = ref(false)
 const mentionFilter = ref('')
 const mentionAnchor = ref<'inline' | 'modal'>('inline')
 
-const allDisplayImages = ref<{ id: number | string; url: string; label: string; isRef: boolean }[]>([])
+interface DisplayImage {
+  id: number | string
+  url: string
+  label: string
+  isRef: boolean
+}
+
+const allDisplayImages = ref<DisplayImage[]>([])
 let nodeInitialized = false
 
 watch(ratioOptions, (options) => {
@@ -77,7 +84,7 @@ watch(resolutionOptions, (options) => {
 })
 
 function rebuildDisplay() {
-  const list: { id: number | string; url: string; label: string; isRef: boolean }[] = []
+  const list: DisplayImage[] = []
   for (const [, img] of connectedImages.value) {
     list.push({ id: img.id, url: img.url, label: img.name, isRef: true })
   }
@@ -85,6 +92,37 @@ function rebuildDisplay() {
     list.push({ id: img.id, url: img.url, label: img.name || '上传', isRef: false })
   }
   allDisplayImages.value = list
+  nextTick(refreshMentionThumbnails)
+}
+
+// Mention chips are only a visual representation. Their image URL must follow
+// the current source node instead of retaining a stale URL saved in promptHtml.
+function refreshMentionThumbnails() {
+  const references = new Map(allDisplayImages.value.map(image => [String(image.id), image]))
+  let updatedHtml = false
+  for (const editor of [editableRef.value, modalContentEditable.value]) {
+    if (!editor) continue
+    let editorChanged = false
+    for (const mention of editor.querySelectorAll<HTMLElement>('[data-mention-id]')) {
+      const reference = references.get(mention.dataset.mentionId || '')
+      const thumbnail = mention.querySelector<HTMLImageElement>('img')
+      if (!reference || !thumbnail || thumbnail.getAttribute('src') === reference.url) continue
+      thumbnail.src = reference.url
+      editorChanged = true
+    }
+    if (editorChanged && editor === editableRef.value) {
+      promptHtml.value = editor.innerHTML
+      updatedHtml = true
+    }
+  }
+  if (updatedHtml) updatePromptPlainText()
+}
+
+function updatePromptPlainText() {
+  if (!promptHtml.value) return
+  const container = document.createElement('div')
+  container.innerHTML = promptHtml.value
+  prompt.value = (container.textContent || '').trim()
 }
 
 watch(() => props.nodeInputs, (inputs) => {
@@ -93,10 +131,11 @@ watch(() => props.nodeInputs, (inputs) => {
   for (const inp of inputs) {
     if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image') && inp.data?.dataUrl) {
       currentEdgeIds.add(inp.edgeId)
-      if (!connectedImages.value.has(inp.edgeId)) {
-        const name = typeof inp.data.name === 'string' && inp.data.name.trim()
-          ? inp.data.name.trim()
-          : `参考-${inp.sourceNodeId.slice(-6)}`
+      const name = typeof inp.data.name === 'string' && inp.data.name.trim()
+        ? inp.data.name.trim()
+        : `参考-${inp.sourceNodeId.slice(-6)}`
+      const current = connectedImages.value.get(inp.edgeId)
+      if (!current || current.id !== inp.sourceNodeId || current.url !== inp.data.dataUrl || current.name !== name) {
         connectedImages.value.set(inp.edgeId, { id: inp.sourceNodeId, url: inp.data.dataUrl, name })
       }
     }
@@ -154,7 +193,7 @@ watch(() => props.node, (n) => {
       if (editableRef.value) {
         if (promptHtml.value) {
           editableRef.value.innerHTML = promptHtml.value
-          syncPrompt()
+          refreshMentionThumbnails()
         } else {
           editableRef.value.textContent = prompt.value
         }
