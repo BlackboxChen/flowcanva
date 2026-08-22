@@ -438,11 +438,16 @@ const typeMeta: Record<string, { name: string; icon: string }> = {
 }
 
 const currentTypeMeta = computed(() => typeMeta[props.node.node_type] ?? { name: '节点', icon: '' })
+const customDisplayName = computed(() => {
+  try {
+    const data = props.node.content ? JSON.parse(props.node.content) : null
+    return typeof data?.displayName === 'string' ? data.displayName.trim() : ''
+  } catch { return '' }
+})
 const nodeTitle = computed(() => {
   const name = currentTypeMeta.value.name
-  return props.node.node_type === 'image' || props.node.node_type === 'video'
-    ? `${name} ${props.typeOrder}`
-    : name
+  const numbered = props.node.node_type === 'image' || props.node.node_type === 'video' ? `${name} ${props.typeOrder}` : name
+  return customDisplayName.value ? `${numbered}｜${customDisplayName.value}` : numbered
 })
 
 const directorSummary = computed(() => {

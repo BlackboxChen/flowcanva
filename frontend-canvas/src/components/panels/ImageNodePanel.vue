@@ -19,6 +19,7 @@ const emit = defineEmits<{
 const { modelInfoMap, getModels, getModelConfig } = useNodeConfigs()
 
 const prompt = ref('')
+const displayName = ref('')
 const promptHtml = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
@@ -175,6 +176,7 @@ watch(() => props.node, (n) => {
       const data = n.content ? JSON.parse(n.content) : null
       if (data) {
         prompt.value = data.prompt || ''
+        displayName.value = data.displayName || ''
         promptHtml.value = data.promptHtml || ''
         if (typeof data.model === 'string' && data.model) selectedModel.value = data.model
         if (typeof data.aspect_ratio === 'string' && ratioOptions.value.includes(data.aspect_ratio)) selectedRatio.value = data.aspect_ratio
@@ -188,12 +190,14 @@ watch(() => props.node, (n) => {
         }
       } else {
         prompt.value = n.content || ''
+        displayName.value = ''
         promptHtml.value = ''
         images.value = []
         generatedImages.value = []
       }
     } catch {
       prompt.value = n.content || ''
+      displayName.value = ''
       promptHtml.value = ''
       images.value = []
       generatedImages.value = []
@@ -224,6 +228,13 @@ watch(prompt, () => {
   }, 800)
 })
 
+watch(displayName, () => {
+  if (!props.node) return
+  const existing: any = {}
+  try { if (props.node.content) Object.assign(existing, JSON.parse(props.node.content)) } catch {}
+  emit('save', buildContent({ images: existing.images || images.value, generated_images: existing.generated_images || generatedImages.value }))
+})
+
 async function loadPresets() {
   if (!props.node?.canvas_id) return
   try {
@@ -247,6 +258,7 @@ function buildContent(extras: Record<string, any> = {}) {
   return JSON.stringify({
     prompt: prompt.value,
     promptHtml: promptHtml.value,
+    displayName: displayName.value.trim(),
     model: selectedModel.value,
     aspect_ratio: selectedRatio.value,
     image_size: selectedResolution.value,
@@ -534,6 +546,8 @@ watch(modalOpen, async (v) => {
           <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
           </svg>
       </button>
+
+      <input v-model="displayName" type="text" placeholder="节点说明，如：高博人物形象" class="mb-2 w-full bg-transparent border-b border-white/10 px-1 py-1 text-xs text-white/70 outline-none placeholder:text-white/25 focus:border-white/30" />
 
       <div class="flex items-center gap-1.5 mb-2">
         <div class="shrink-0 w-10 h-10 rounded-lg border border-white/15 flex flex-col items-center justify-center text-white/40 gap-0.5">

@@ -136,6 +136,7 @@ interface InputData {
 }
 
 function referenceName(source: Node, parsed: any): string {
+  if (typeof parsed?.displayName === 'string' && parsed.displayName.trim()) return parsed.displayName.trim()
   const candidates = [parsed?.name, parsed?.title, parsed?.filename, parsed?.prompt]
   for (const candidate of candidates) {
     if (typeof candidate !== 'string') continue
@@ -143,6 +144,15 @@ function referenceName(source: Node, parsed: any): string {
     if (firstLine) return firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
   }
   return `参考-${source.id.slice(-6)}`
+}
+
+function nodeDisplayName(source: Node, fallback: string): string {
+  try {
+    const data = source.content ? JSON.parse(source.content) : null
+    return typeof data?.displayName === 'string' && data.displayName.trim()
+      ? `${fallback}｜${data.displayName.trim()}`
+      : fallback
+  } catch { return fallback }
 }
 
 const nodeInputs = computed(() => {
@@ -174,7 +184,7 @@ const nodeInputs = computed(() => {
       sourceNodeId: source.id,
       sourceNodeType: source.node_type,
       sourceNodeName: source.node_type === 'image'
-        ? `图片 ${nodeTypeOrder.value[source.id] ?? 0}`
+        ? nodeDisplayName(source, `图片 ${nodeTypeOrder.value[source.id] ?? 0}`)
         : undefined,
       data,
     })
