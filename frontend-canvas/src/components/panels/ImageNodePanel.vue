@@ -542,7 +542,7 @@ watch(modalOpen, async (v) => {
         </div>
         <div v-for="img in allDisplayImages" :key="img.id" class="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/15 cursor-pointer hover:border-white/50 transition-colors" @click.stop="previewImg = img">
           <img :src="img.url" class="w-full h-full object-cover" />
-          <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.label }}</span>
+          <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.displayLabel }}</span>
           <button v-if="!img.isRef" type="button" class="absolute top-0 right-0 z-10 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" title="删除参考图" @pointerdown.stop @click.stop="removeReference({ id: img.id, url: img.url })">×</button>
         </div>
         <button class="shrink-0 w-10 h-10 rounded-lg border border-white/15 flex flex-col items-center justify-center text-white/40 hover:text-white/60 hover:border-white/25 transition-colors gap-0.5" @click="onAddImage">
@@ -635,7 +635,7 @@ watch(modalOpen, async (v) => {
           <div v-if="allDisplayImages.length > 0" class="flex flex-wrap gap-2">
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">
               <img :src="img.url" class="w-full h-full object-cover" />
-              <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ img.label }}</span>
+              <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ img.displayLabel }}</span>
             </div>
           </div>
         </div>
