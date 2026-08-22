@@ -131,6 +131,7 @@ interface InputData {
   edgeId: string
   sourceNodeId: string
   sourceNodeType: string
+  sourceNodeName?: string
   data: any
 }
 
@@ -172,6 +173,9 @@ const nodeInputs = computed(() => {
       edgeId: edge.id,
       sourceNodeId: source.id,
       sourceNodeType: source.node_type,
+      sourceNodeName: source.node_type === 'image'
+        ? `图片 ${nodeTypeOrder.value[source.id] ?? 0}`
+        : undefined,
       data,
     })
   }

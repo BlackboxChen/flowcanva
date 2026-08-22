@@ -5,11 +5,12 @@ import { useAssets, ASSET_CATEGORIES } from '../composables/useAssets'
 interface MentionImage {
   id: number | string
   name: string
+  displayName?: string
   src: string
 }
 
 const props = defineProps<{
-  connectedImages: { id: number | string; name: string; dataUrl: string }[]
+  connectedImages: { id: number | string; name: string; displayName?: string; dataUrl: string }[]
   filter: string
 }>()
 
@@ -35,7 +36,10 @@ const f = computed(() => props.filter.toLowerCase())
 
 const filteredConnected = computed(() => {
   if (!f.value) return props.connectedImages
-  return props.connectedImages.filter(img => img.name.toLowerCase().includes(f.value))
+  return props.connectedImages.filter(img =>
+    img.name.toLowerCase().includes(f.value)
+    || img.displayName?.toLowerCase().includes(f.value),
+  )
 })
 
 const filteredAssets = computed(() => {
@@ -59,8 +63,8 @@ function loadMore() {
   visibleCount.value += PAGE_SIZE
 }
 
-function selectImg(item: { id: any; name: string; src: string }) {
-  emit('insert', { id: item.id, name: item.name, src: item.src })
+function selectImg(item: { id: any; name: string; displayName?: string; src: string }) {
+  emit('insert', { id: item.id, name: item.name, displayName: item.displayName, src: item.src })
 }
 </script>
 
@@ -72,10 +76,10 @@ function selectImg(item: { id: any; name: string; src: string }) {
       <button
         v-for="img in filteredConnected" :key="`c-${img.id}`"
         class="flex items-center gap-2 w-full px-3 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
-        @click="selectImg({ id: img.id, name: img.name, src: img.dataUrl })"
+        @click="selectImg({ id: img.id, name: img.name, displayName: img.displayName, src: img.dataUrl })"
       >
         <img :src="img.dataUrl" class="w-5 h-5 rounded object-cover shrink-0" />
-        <span>@{{ img.name }}</span>
+        <span>@{{ img.displayName || img.name }}</span>
       </button>
       <div v-if="filteredConnected.length === 0" class="px-3 py-1 text-[11px] text-white/25">无</div>
     </div>

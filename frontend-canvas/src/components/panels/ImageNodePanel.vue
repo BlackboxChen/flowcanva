@@ -8,7 +8,7 @@ import { loadImagePresets } from '../../composables/useImagePresets'
 const props = defineProps<{
   node: Node | null
   panelStyle: Record<string, string>
-  nodeInputs?: { edgeId: string; sourceNodeId: string; sourceNodeType: string; data: any }[]
+  nodeInputs?: { edgeId: string; sourceNodeId: string; sourceNodeType: string; sourceNodeName?: string; data: any }[]
 }>()
 
 const emit = defineEmits<{
@@ -25,7 +25,7 @@ const errorMessage = ref('')
 const modalOpen = ref(false)
 const images = ref<{ id: number; url: string; name?: string }[]>([])
 const generatedImages = ref<{ id: number; url: string }[]>([])
-const connectedImages = ref<Map<string, { id: string; url: string; name: string }>>(new Map())
+const connectedImages = ref<Map<string, { id: string; url: string; name: string; displayName?: string }>>(new Map())
 let imageCounter = 0
 const previewImg = ref<{ id: number | string; url: string } | null>(null)
 
@@ -67,6 +67,7 @@ interface DisplayImage {
   id: number | string
   url: string
   label: string
+  displayLabel: string
   isRef: boolean
 }
 
@@ -86,10 +87,11 @@ watch(resolutionOptions, (options) => {
 function rebuildDisplay() {
   const list: DisplayImage[] = []
   for (const [, img] of connectedImages.value) {
-    list.push({ id: img.id, url: img.url, label: img.name, isRef: true })
+    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: img.displayName || img.name, isRef: true })
   }
   for (const img of images.value) {
-    list.push({ id: img.id, url: img.url, label: img.name || '上传', isRef: false })
+    const label = img.name || '上传'
+    list.push({ id: img.id, url: img.url, label, displayLabel: label, isRef: false })
   }
   allDisplayImages.value = list
   nextTick(refreshMentionThumbnails)
@@ -106,9 +108,16 @@ function refreshMentionThumbnails() {
     for (const mention of editor.querySelectorAll<HTMLElement>('[data-mention-id]')) {
       const reference = references.get(mention.dataset.mentionId || '')
       const thumbnail = mention.querySelector<HTMLImageElement>('img')
-      if (!reference || !thumbnail || thumbnail.getAttribute('src') === reference.url) continue
-      thumbnail.src = reference.url
-      editorChanged = true
+      const label = mention.querySelector<HTMLElement>('.text-blue-400')
+      if (!reference) continue
+      if (thumbnail && thumbnail.getAttribute('src') !== reference.url) {
+        thumbnail.src = reference.url
+        editorChanged = true
+      }
+      if (label && label.textContent !== `@${reference.displayLabel}`) {
+        label.textContent = `@${reference.displayLabel}`
+        editorChanged = true
+      }
     }
     if (editorChanged && editor === editableRef.value) {
       promptHtml.value = editor.innerHTML
@@ -135,8 +144,9 @@ watch(() => props.nodeInputs, (inputs) => {
         ? inp.data.name.trim()
         : `参考-${inp.sourceNodeId.slice(-6)}`
       const current = connectedImages.value.get(inp.edgeId)
-      if (!current || current.id !== inp.sourceNodeId || current.url !== inp.data.dataUrl || current.name !== name) {
-        connectedImages.value.set(inp.edgeId, { id: inp.sourceNodeId, url: inp.data.dataUrl, name })
+      const displayName = inp.sourceNodeName || name
+      if (!current || current.id !== inp.sourceNodeId || current.url !== inp.data.dataUrl || current.name !== name || current.displayName !== displayName) {
+        connectedImages.value.set(inp.edgeId, { id: inp.sourceNodeId, url: inp.data.dataUrl, name, displayName })
       }
     }
   }
@@ -318,7 +328,7 @@ function handleMention(anchor: 'inline' | 'modal') {
   else { showMention.value = false }
 }
 
-function insertMention(img: { id: any; name: string; src: string }) {
+function insertMention(img: { id: any; name: string; displayName?: string; src: string }) {
   const el = mentionAnchor.value === 'modal' ? modalContentEditable.value : editableRef.value; if (!el) return
   const sel = window.getSelection(); if (!sel?.rangeCount) return
   const range = sel.getRangeAt(0); const node = range.startContainer
@@ -338,7 +348,7 @@ function insertMention(img: { id: any; name: string; src: string }) {
   thumbnail.className = 'inline w-4 h-4 rounded object-cover'
   const label = document.createElement('span')
   label.className = 'text-blue-400'
-  label.textContent = `@${img.name}`
+  label.textContent = `@${img.displayName || img.name}`
   chip.append(thumbnail, label)
   chip.setAttribute('data-mention-id', String(img.id))
   chip.setAttribute('data-mention', img.name)
@@ -550,7 +560,7 @@ watch(modalOpen, async (v) => {
       </div>
 
       <div v-if="showMention" class="relative">
-        <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, dataUrl: i.url }))" :filter="mentionFilter" @insert="insertMention" />
+        <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url }))" :filter="mentionFilter" @insert="insertMention" />
       </div>
 
       <div v-if="errorMessage" class="mb-2 flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
