@@ -11,6 +11,7 @@ import type { Node } from '../types'
 
 const props = defineProps<{
   node: Node
+  typeOrder: number
   selected: boolean
   zoom: number
   zIndex: number
@@ -437,6 +438,12 @@ const typeMeta: Record<string, { name: string; icon: string }> = {
 }
 
 const currentTypeMeta = computed(() => typeMeta[props.node.node_type] ?? { name: '节点', icon: '' })
+const nodeTitle = computed(() => {
+  const name = currentTypeMeta.value.name
+  return props.node.node_type === 'image' || props.node.node_type === 'video'
+    ? `${name} ${props.typeOrder}`
+    : name
+})
 
 const directorSummary = computed(() => {
   if (props.node.node_type !== 'director' || !props.node.content) return null
@@ -618,7 +625,7 @@ onMounted(() => {
         class="text-white/70 shrink-0"
         v-html="currentTypeMeta.icon"
       />
-      <span class="text-xs text-white/70 font-medium truncate">{{ currentTypeMeta.name }}</span>
+      <span class="text-xs text-white/70 font-medium truncate">{{ nodeTitle }}</span>
     </div>
 
     <!-- 节点内容窗口 -->

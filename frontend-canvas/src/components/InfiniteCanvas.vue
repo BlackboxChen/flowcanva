@@ -192,6 +192,17 @@ const nodesById = computed(() => {
   return m
 })
 
+// 与图层面板一致：按画布节点顺序分别计算每种类型的序号。
+const nodeTypeOrder = computed(() => {
+  const counters: Record<string, number> = {}
+  const order: Record<string, number> = {}
+  for (const node of props.nodes) {
+    counters[node.node_type] = (counters[node.node_type] || 0) + 1
+    order[node.id] = counters[node.node_type]
+  }
+  return order
+})
+
 function getNode(nodeId: string): Node | undefined {
   return nodesById.value.get(nodeId)
 }
@@ -517,6 +528,7 @@ function onPanelSave(content: string) {
         v-for="node in nodes"
         :key="node.id"
         :node="node"
+        :type-order="nodeTypeOrder[node.id] ?? 0"
         :selected="node.id === selectedNodeId"
         :zoom="viewport.zoom"
         :z-index="nodeZIndices[node.id] ?? 0"
