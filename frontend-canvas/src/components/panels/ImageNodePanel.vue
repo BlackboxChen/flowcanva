@@ -75,6 +75,11 @@ interface DisplayImage {
 const allDisplayImages = ref<DisplayImage[]>([])
 let nodeInitialized = false
 
+function deriveDisplayName(text: string): string {
+  const firstLine = text.split(/\r?\n/).map(line => line.trim()).find(Boolean) || ''
+  return firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
+}
+
 watch(ratioOptions, (options) => {
   if (!options.includes(selectedRatio.value)) selectedRatio.value = options[0]
 })
@@ -177,6 +182,7 @@ watch(() => props.node, (n) => {
       if (data) {
         prompt.value = data.prompt || ''
         displayName.value = data.displayName || ''
+        if (!displayName.value) displayName.value = deriveDisplayName(prompt.value)
         promptHtml.value = data.promptHtml || ''
         if (typeof data.model === 'string' && data.model) selectedModel.value = data.model
         if (typeof data.aspect_ratio === 'string' && ratioOptions.value.includes(data.aspect_ratio)) selectedRatio.value = data.aspect_ratio
@@ -191,6 +197,7 @@ watch(() => props.node, (n) => {
       } else {
         prompt.value = n.content || ''
         displayName.value = ''
+        displayName.value = deriveDisplayName(prompt.value)
         promptHtml.value = ''
         images.value = []
         generatedImages.value = []
@@ -198,6 +205,7 @@ watch(() => props.node, (n) => {
     } catch {
       prompt.value = n.content || ''
       displayName.value = ''
+      displayName.value = deriveDisplayName(prompt.value)
       promptHtml.value = ''
       images.value = []
       generatedImages.value = []
