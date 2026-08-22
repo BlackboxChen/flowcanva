@@ -349,10 +349,10 @@ function insertMention(img: { id: any; name: string; src: string }) {
 }
 
 function promptForRequest(): string {
-  if (!promptHtml.value) return prompt.value
   const container = document.createElement('div')
-  container.innerHTML = promptHtml.value
-  const references = allDisplayImages.value
+  if (promptHtml.value) container.innerHTML = promptHtml.value
+  else container.textContent = prompt.value
+  const references = referencesForRequest()
   for (const mention of container.querySelectorAll<HTMLElement>('[data-mention]')) {
     const mentionId = mention.dataset.mentionId
     let index = mentionId ? references.findIndex(image => String(image.id) === mentionId) : -1
@@ -365,7 +365,44 @@ function promptForRequest(): string {
       : (mention.dataset.mention || mention.textContent || '参考图')
     mention.replaceWith(document.createTextNode(replacement))
   }
-  return (container.textContent || prompt.value).trim()
+  const requestPrompt = (container.textContent || prompt.value).trim()
+  if (references.length === 0) return requestPrompt
+  return `${referenceInstructions(references)}\n\n${requestPrompt}`
+}
+
+function referenceRole(reference: DisplayImage): 'character' | 'scene' | 'other' {
+  if (/人物|角色|肖像|character/i.test(reference.label)) return 'character'
+  if (/场景|环境|空间|scene/i.test(reference.label)) return 'scene'
+  return 'other'
+}
+
+// Character sheets go first because image-edit models treat the first input as
+// the strongest visual anchor. The prompt numbering is derived from this same order.
+function referencesForRequest(): DisplayImage[] {
+  const priority = { character: 0, other: 1, scene: 2 }
+  return allDisplayImages.value
+    .map((reference, index) => ({ reference, index }))
+    .sort((a, b) => priority[referenceRole(a.reference)] - priority[referenceRole(b.reference)] || a.index - b.index)
+    .map(item => item.reference)
+}
+
+function referenceInstructions(references: DisplayImage[]): string {
+  const lines = references.map((reference, index) => {
+    const role = referenceRole(reference)
+    if (role === 'character') {
+      return `- image ${index + 1} 是人物身份硬参考（${reference.label}）：严格保持物种/人种、面部特征、发型、体型、服装与配色。`
+    }
+    if (role === 'scene') {
+      return `- image ${index + 1} 是场景参考（${reference.label}）：用于环境、空间与光线，不得用它改变人物身份。`
+    }
+    return `- image ${index + 1} 是视觉参考（${reference.label}），按提示词中的用途使用。`
+  })
+  return [
+    '【参考图强约束，优先级高于风格化发挥】',
+    ...lines,
+    '- 出现人物时必须复现人物身份参考；拟人动物必须保持原物种，禁止改画成真人。',
+    '- 多镜头分镜中的同一人物必须在每格保持一致，不得重新设计角色。',
+  ].join('\n')
 }
 
 async function generate() {
@@ -392,9 +429,7 @@ async function generate() {
       if (modelConfig.protocol) body.protocol = modelConfig.protocol
     }
     // 传入连线参考图
-    const refImages: string[] = []
-    for (const [, img] of connectedImages.value) refImages.push(img.url)
-    for (const img of images.value) refImages.push(img.url)
+    const refImages = referencesForRequest().map(image => image.url)
     if (refImages.length > 16) throw new Error('参考图最多支持 16 张，请删除多余图片后重试')
     if (refImages.length > 0) {
       body.images = refImages

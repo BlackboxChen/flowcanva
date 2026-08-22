@@ -51,6 +51,7 @@ func (h *Handler) generateGeekNowImage(c *gin.Context, req ImageGenRequest, base
 }
 
 func (h *Handler) generateGeekNowImageEdit(c *gin.Context, req ImageGenRequest, references []string, baseURL, apiKey string) {
+	h.log.Info("geeknow image edit request", "model", req.Model, "references", len(references), "size", req.Size)
 	body, contentType, err := writeImageEditMultipart(c.Request.Context(), req, references)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
