@@ -149,9 +149,12 @@ function referenceName(source: Node, parsed: any): string {
 function nodeDisplayName(source: Node, fallback: string): string {
   try {
     const data = source.content ? JSON.parse(source.content) : null
-    return typeof data?.displayName === 'string' && data.displayName.trim()
-      ? `${fallback}｜${data.displayName.trim()}`
-      : fallback
+    const firstLine = typeof data?.prompt === 'string'
+      ? data.prompt.split(/\r?\n/).map((line: string) => line.trim()).find(Boolean) || ''
+      : ''
+    const derived = firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
+    const displayName = typeof data?.displayName === 'string' && data.displayName.trim() ? data.displayName.trim() : derived
+    return displayName ? `${fallback}｜${displayName}` : fallback
   } catch { return fallback }
 }
 

@@ -177,12 +177,16 @@ watch([() => props.node?.node_type, modelInfoMap], syncModels, { immediate: true
 
 watch(() => props.node, (n) => {
   if (n) {
+    let shouldPersistDerivedName = false
     try {
       const data = n.content ? JSON.parse(n.content) : null
       if (data) {
         prompt.value = data.prompt || ''
         displayName.value = data.displayName || ''
-        if (!displayName.value) displayName.value = deriveDisplayName(prompt.value)
+        if (!displayName.value) {
+          displayName.value = deriveDisplayName(prompt.value)
+          shouldPersistDerivedName = Boolean(displayName.value)
+        }
         promptHtml.value = data.promptHtml || ''
         if (typeof data.model === 'string' && data.model) selectedModel.value = data.model
         if (typeof data.aspect_ratio === 'string' && ratioOptions.value.includes(data.aspect_ratio)) selectedRatio.value = data.aspect_ratio
@@ -223,6 +227,11 @@ watch(() => props.node, (n) => {
     })
     loadPresets()
     nodeInitialized = true
+    if (shouldPersistDerivedName) {
+      const existing: any = {}
+      try { Object.assign(existing, JSON.parse(n.content || '{}')) } catch {}
+      emit('save', JSON.stringify({ ...existing, displayName: displayName.value }))
+    }
   }
 }, { immediate: true })
 

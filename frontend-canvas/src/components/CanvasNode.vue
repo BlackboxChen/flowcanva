@@ -441,7 +441,11 @@ const currentTypeMeta = computed(() => typeMeta[props.node.node_type] ?? { name:
 const customDisplayName = computed(() => {
   try {
     const data = props.node.content ? JSON.parse(props.node.content) : null
-    return typeof data?.displayName === 'string' ? data.displayName.trim() : ''
+    if (typeof data?.displayName === 'string' && data.displayName.trim()) return data.displayName.trim()
+    const firstLine = typeof data?.prompt === 'string'
+      ? data.prompt.split(/\r?\n/).map((line: string) => line.trim()).find(Boolean) || ''
+      : ''
+    return firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
   } catch { return '' }
 })
 const nodeTitle = computed(() => {

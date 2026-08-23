@@ -51,8 +51,13 @@ function nodeLabel(n: Node): string {
   // 图片/视频节点优先显示自定义 displayName，保留类型和序号便于定位
   try {
     const c = JSON.parse(n.content || '{}')
-    if ((n.node_type === 'image' || n.node_type === 'video') && c.displayName) {
-      return `${label} ${order}｜${c.displayName}`
+    if (n.node_type === 'image' || n.node_type === 'video') {
+      const firstLine = typeof c.prompt === 'string'
+        ? c.prompt.split(/\r?\n/).map((line: string) => line.trim()).find(Boolean) || ''
+        : ''
+      const derived = firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
+      const displayName = typeof c.displayName === 'string' && c.displayName.trim() ? c.displayName.trim() : derived
+      if (displayName) return `${label} ${order}｜${displayName}`
     }
     if (c.name) return c.name
   } catch {}
