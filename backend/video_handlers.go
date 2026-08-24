@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -188,23 +187,13 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 		videoURL := findVideoURL(pollData)
 
 		if videoURL != "" && (status == "" || status == "completed" || status == "succeeded" || status == "success" || status == "done" || status == "finished") {
-			localURL := videoURL
-			dlResp, dlErr := llmClient.Get(videoURL)
-			if dlErr == nil && dlResp.StatusCode == 200 {
-				defer dlResp.Body.Close()
-				os.MkdirAll("./uploads/videos", 0755)
-				filename := fmt.Sprintf("video_%d.mp4", time.Now().Unix())
-				localPath := fmt.Sprintf("./uploads/videos/%s", filename)
-				f, err := os.Create(localPath)
-				if err == nil {
-					written, copyErr := io.Copy(f, dlResp.Body)
-					f.Close()
-					if copyErr == nil && written > 10000 {
-						localURL = "/uploads/videos/" + filename
-						h.log.Info("video saved", "path", localPath, "bytes", written)
-					}
-				}
+			localURL, saveErr := persistRemoteVideo(c.Request.Context(), videoURL)
+			if saveErr != nil {
+				h.log.Error("video local save failed", "task_id", taskID, "error", saveErr)
+				c.JSON(http.StatusBadGateway, gin.H{"error": "视频生成完成，但保存到本地失败", "task_id": taskID})
+				return
 			}
+			h.log.Info("video saved locally", "task_id", taskID, "url", localURL)
 
 			c.JSON(http.StatusOK, gin.H{
 				"videos": []string{localURL},

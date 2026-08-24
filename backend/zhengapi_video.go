@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -47,8 +46,13 @@ func (h *Handler) generateZhengAPIVideo(c *gin.Context, req VideoGenRequest, bas
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error(), "task_id": taskID})
 		return
 	}
-	videoURL = h.cacheZhengVideo(c, taskID, videoURL)
-	h.log.Info("zhengapi video task completed", "task_id", taskID, "cached", strings.HasPrefix(videoURL, "/uploads/"))
+	videoURL, err = h.cacheZhengVideo(c, taskID, videoURL)
+	if err != nil {
+		h.log.Error("zhengapi video local save failed", "task_id", taskID, "error", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "视频生成完成，但保存到本地失败", "task_id": taskID})
+		return
+	}
+	h.log.Info("zhengapi video task completed", "task_id", taskID, "cached", true)
 	c.JSON(http.StatusOK, gin.H{
 		"videos": []string{videoURL},
 		"items":  []map[string]any{{"index": 0, "task_id": taskID, "video_url": videoURL}},
@@ -162,36 +166,13 @@ func pollZhengVideoTask(c *gin.Context, baseURL, apiKey, taskID string) (string,
 	}
 }
 
-func (h *Handler) cacheZhengVideo(c *gin.Context, taskID, videoURL string) string {
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, videoURL, nil)
+func (h *Handler) cacheZhengVideo(c *gin.Context, taskID, videoURL string) (string, error) {
+	localURL, err := persistRemoteVideo(c.Request.Context(), videoURL)
 	if err != nil {
-		return videoURL
+		return "", err
 	}
-	resp, err := llmClient.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return videoURL
-	}
-	defer resp.Body.Close()
-	if err := os.MkdirAll("./uploads/videos", 0755); err != nil {
-		return videoURL
-	}
-	filename := fmt.Sprintf("video_%d.mp4", time.Now().UnixNano())
-	path := "./uploads/videos/" + filename
-	file, err := os.Create(path)
-	if err != nil {
-		return videoURL
-	}
-	written, copyErr := io.Copy(file, resp.Body)
-	closeErr := file.Close()
-	if copyErr != nil || closeErr != nil || written < 10000 {
-		_ = os.Remove(path)
-		return videoURL
-	}
-	h.log.Info("zhengapi video cached", "task_id", taskID, "path", path, "bytes", written)
-	return "/uploads/videos/" + filename
+	h.log.Info("zhengapi video cached", "task_id", taskID, "url", localURL)
+	return localURL, nil
 }
 
 func decodeZhengVideoResponse(resp *http.Response) (map[string]any, error) {
