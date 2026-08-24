@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +46,49 @@ func TestMaterializeImageResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(content) != "hello" {
+		t.Fatalf("saved content = %q", content)
+	}
+}
+
+func TestMaterializeRemoteImageResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write([]byte("remote-image"))
+	}))
+	defer server.Close()
+
+	workdir := t.TempDir()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(workdir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
+
+	body := []byte(`{"data":[{"url":"` + server.URL + `/result.png"}]}`)
+	result, err := materializeImageResponse(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(result), server.URL) {
+		t.Fatalf("remote URL remained in response: %s", result)
+	}
+	var decoded struct {
+		Data []struct {
+			URL string `json:"url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(result, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(workdir, filepath.FromSlash(strings.TrimPrefix(decoded.Data[0].URL, "/")))
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "remote-image" {
 		t.Fatalf("saved content = %q", content)
 	}
 }

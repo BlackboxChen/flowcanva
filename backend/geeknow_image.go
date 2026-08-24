@@ -111,14 +111,19 @@ func (h *Handler) generateGeekNowImageAsync(c *gin.Context, baseURL, apiKey stri
 	}
 	h.log.Info("geeknow image task completed", "task_id", task, "images", len(result.Data))
 	for index := range result.Data {
-		if result.Data[index].B64JSON == "" {
+		var url string
+		var saveErr error
+		if result.Data[index].B64JSON != "" {
+			raw := result.Data[index].B64JSON
+			if !strings.HasPrefix(raw, "data:") {
+				raw = "data:image/png;base64," + raw
+			}
+			url, saveErr = persistEmbeddedImage(raw)
+		} else if isRemoteHTTPURL(result.Data[index].URL) {
+			url, saveErr = persistRemoteImage(result.Data[index].URL)
+		} else {
 			continue
 		}
-		raw := result.Data[index].B64JSON
-		if !strings.HasPrefix(raw, "data:") {
-			raw = "data:image/png;base64," + raw
-		}
-		url, saveErr := persistEmbeddedImage(raw)
 		if saveErr != nil {
 			h.log.Error("geeknow async image save failed", "error", saveErr)
 			c.JSON(http.StatusBadGateway, gin.H{"error": "生成图片保存失败"})

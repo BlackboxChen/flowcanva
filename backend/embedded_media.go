@@ -124,8 +124,8 @@ func migrateEmbeddedNodeMedia(db *sql.DB, log *slog.Logger) error {
 	return nil
 }
 
-// materializeImageResponse replaces upstream b64_json and Data URL values before
-// they can be persisted inside a canvas node by the frontend.
+// materializeImageResponse replaces upstream image payloads with local upload
+// paths before they can be persisted inside a canvas node by the frontend.
 func materializeImageResponse(body []byte) ([]byte, error) {
 	var payload any
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -164,6 +164,13 @@ func materializeResponseValue(value any) (bool, error) {
 		}
 		if raw, ok := current["url"].(string); ok && strings.HasPrefix(raw, "data:image/") {
 			url, err := persistEmbeddedImage(raw)
+			if err != nil {
+				return changed, err
+			}
+			current["url"] = url
+			changed = true
+		} else if ok && isRemoteHTTPURL(raw) {
+			url, err := persistRemoteImage(raw)
 			if err != nil {
 				return changed, err
 			}

@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -44,9 +45,25 @@ func TestGenerateGeekNowImagePreservesAllReferences(t *testing.T) {
 	}))
 	defer referenceServer.Close()
 
+	workdir := t.TempDir()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(workdir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
+
 	var fields map[string]string
 	var images []string
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var upstream *httptest.Server
+	upstream = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/result.png" {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = io.WriteString(w, "generated-image")
+			return
+		}
 		if r.URL.Path != "/v1/images/edits" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -59,7 +76,7 @@ func TestGenerateGeekNowImagePreservesAllReferences(t *testing.T) {
 		}
 		fields, images = readImageEditParts(t, reader)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"data":[{"url":"https://cdn.example/result.png"}]}`)
+		_, _ = io.WriteString(w, `{"data":[{"url":"`+upstream.URL+`/result.png"}]}`)
 	}))
 	defer upstream.Close()
 
@@ -81,6 +98,9 @@ func TestGenerateGeekNowImagePreservesAllReferences(t *testing.T) {
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected response: code=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "/uploads/generated/") || strings.Contains(recorder.Body.String(), upstream.URL) {
+		t.Fatalf("result was not localized: %s", recorder.Body.String())
 	}
 	if fields["model"] != "gpt-image-2" || fields["prompt"] != "combine references" || fields["size"] != "1024x1024" {
 		t.Fatalf("unexpected fields: %#v", fields)
