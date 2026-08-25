@@ -21,6 +21,8 @@ type Config struct {
 	ZhengAPIBaseURL     string
 	ZhengAPIAPIKey      string
 	ZhengAPIUseDataURLs bool
+	MegaBYBaseURL       string
+	MegaBYAPIKey        string
 	GeekNowBaseURL      string
 	GeekNowAPIKey       string
 }
@@ -46,6 +48,8 @@ func loadConfig() Config {
 		ZhengAPIBaseURL:     strings.TrimRight(os.Getenv("ZHENGAPI_BASE_URL"), "/"),
 		ZhengAPIAPIKey:      os.Getenv("ZHENGAPI_API_KEY"),
 		ZhengAPIUseDataURLs: envBool("ZHENGAPI_USE_DATA_URLS"),
+		MegaBYBaseURL:       strings.TrimRight(os.Getenv("MEGABY_BASE_URL"), "/"),
+		MegaBYAPIKey:        os.Getenv("MEGABY_API_KEY"),
 		GeekNowBaseURL:      strings.TrimRight(os.Getenv("GEEKNOW_BASE_URL"), "/"),
 		GeekNowAPIKey:       os.Getenv("GEEKNOW_API_KEY"),
 	}

@@ -7,6 +7,24 @@ import (
 
 var errAPIKeyNotConfigured = errors.New("api_key 未配置，请在管理台节点配置中设置，或配置 ZHENGAPI_API_KEY")
 var errImageAPIKeyNotConfigured = errors.New("图片 api_key 未配置，请在管理台节点配置中设置，或配置 GEEKNOW_API_KEY")
+var errMegaBYAPIKeyNotConfigured = errors.New("MegaBY 视频 api_key 未配置，请在管理台节点配置中设置，或配置 MEGABY_API_KEY")
+
+func (h *Handler) resolveVideoUpstream(req VideoGenRequest) (string, string, error) {
+	if isMegaBYVideoModel(req.Model) || req.Protocol == "megaby_video" {
+		if strings.TrimSpace(req.APIKey) != "" {
+			baseURL := strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
+			if baseURL == "" {
+				baseURL = "https://newapi.megabyai.cc"
+			}
+			return baseURL, req.APIKey, nil
+		}
+		if h.cfg.MegaBYBaseURL == "" || h.cfg.MegaBYAPIKey == "" {
+			return "", "", errMegaBYAPIKeyNotConfigured
+		}
+		return strings.TrimRight(h.cfg.MegaBYBaseURL, "/"), h.cfg.MegaBYAPIKey, nil
+	}
+	return h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.nxfl.cc", false)
+}
 
 // resolveUpstream keeps a node's URL and key together. If a node has no key,
 // the ZhengAPI URL and key take over as one pair to avoid leaking credentials.

@@ -47,7 +47,7 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 		return
 	}
 
-	baseURL, apiKey, err := h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.nxfl.cc", false)
+	baseURL, apiKey, err := h.resolveVideoUpstream(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -55,6 +55,10 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 	baseURL = strings.TrimRight(baseURL, "/")
 	if req.Protocol == "zhengapi_video" || isZhengAPISDModel(req.Model) {
 		h.generateZhengAPIVideo(c, req, baseURL, apiKey)
+		return
+	}
+	if isMegaBYVideoModel(req.Model) || req.Protocol == "megaby_video" {
+		h.generateMegaBYVideo(c, req, baseURL, apiKey)
 		return
 	}
 	if req.Model == "" {

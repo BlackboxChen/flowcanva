@@ -137,7 +137,9 @@ watch(() => props.nodeInputs, (inputs) => {
 function syncModels() {
   if (!props.node) return
   const typeModels = getModels(props.node.node_type)
-  models.value = typeModels.length > 0 ? typeModels : ['sd-2.0-15s-16x9-480p']
+  // 隐藏内部 Doubao 路由；MegaBY/ZhengAPI 模型保留各自前缀，避免同名冲突。
+  const visibleModels = typeModels.filter(model => !model.startsWith('doubao-'))
+  models.value = visibleModels.length > 0 ? visibleModels : ['sd-2.0-15s-16x9-480p']
   if (!models.value.includes(selectedModel.value)) {
     selectedModel.value = models.value.find(model => isZhengAPIVideoModel(model)) || models.value[0]
   }
