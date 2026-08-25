@@ -18,6 +18,8 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 	mime.AddExtensionType(".glb", "model/gltf-binary")
 	mime.AddExtensionType(".gltf", "model/gltf+json")
 	r := gin.New()
+	// /canvas/ 是 Vite 应用的 base 路径，不能被 Gin 自动规范化回 /canvas。
+	r.RedirectTrailingSlash = false
 	r.Use(CORSMiddleware())
 	r.Use(LoggerMiddleware(h.log))
 
@@ -73,6 +75,10 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 	r.Static("/uploads", "./uploads")
 
 	if cfg.DevMode {
+		// Vite 的 canvas 应用 base 为 /canvas/，兼容用户直接访问 /canvas。
+		r.GET("/canvas", func(c *gin.Context) {
+			c.Redirect(http.StatusMovedPermanently, "/canvas/")
+		})
 		adminURL, _ := url.Parse(cfg.AdminDevURL)
 		canvasURL, _ := url.Parse(cfg.CanvasDevURL)
 		adminProxy := httputil.NewSingleHostReverseProxy(adminURL)
@@ -108,7 +114,7 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 				serveEmbedHTML(c, CanvasEmbedFS, "canvas-dist/index.html")
 			})
 
-		r.NoRoute(func(c *gin.Context) {
+			r.NoRoute(func(c *gin.Context) {
 				path := c.Request.URL.Path
 				if strings.HasPrefix(path, "/canvas") {
 					// 先尝试 canvas-dist 下的实际文件(模型/图片等),读不到再回退 SPA index.html

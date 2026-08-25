@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { Node } from '../../types'
 import MentionDropdown from '../MentionDropdown.vue'
 import { useNodeConfigs } from '../../composables/useNodeConfigs'
@@ -71,6 +71,18 @@ const modalEditableRef = ref<HTMLDivElement | null>(null)
 const showMention = ref(false)
 const mentionFilter = ref('')
 const mentionAnchor = ref<'inline' | 'modal'>('inline')
+const mentionRange = ref<Range | null>(null)
+
+function closeMentionOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && showMention.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    showMention.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('keydown', closeMentionOnEscape, true))
+onUnmounted(() => document.removeEventListener('keydown', closeMentionOnEscape, true))
 
 function syncPrompt(anchor?: 'inline' | 'modal') {
   const el = anchor === 'modal' ? modalEditableRef.value : editableRef.value
@@ -211,13 +223,23 @@ function handleMention(anchor: 'inline' | 'modal') {
   const text = node.textContent || ''; const cursorPos = range.startOffset
   const before = text.slice(0, cursorPos)
   const m = before.match(/@([^\s@]*)$/)
-  if (m) { mentionFilter.value = m[1]; showMention.value = true; mentionAnchor.value = anchor }
+  if (m) {
+    mentionFilter.value = m[1]
+    mentionAnchor.value = anchor
+    mentionRange.value = range.cloneRange()
+    showMention.value = true
+  }
   else { showMention.value = false }
 }
 
 function insertMention(img: { id: any; name: string; src: string }) {
   const el = mentionAnchor.value === 'modal' ? modalEditableRef.value : editableRef.value; if (!el) return
-  const sel = window.getSelection(); if (!sel?.rangeCount) return
+  const sel = window.getSelection(); if (!sel) return
+  if (mentionRange.value) {
+    sel.removeAllRanges()
+    sel.addRange(mentionRange.value)
+  }
+  if (!sel.rangeCount) return
   const range = sel.getRangeAt(0); const node = range.startContainer
   if (node.nodeType !== Node.TEXT_NODE) return
   const text = node.textContent || ''; const pos = range.startOffset
@@ -230,7 +252,7 @@ function insertMention(img: { id: any; name: string; src: string }) {
   const space = document.createTextNode(' ')
   range.insertNode(space); range.insertNode(chip)
   sel.removeAllRanges(); range.setStartAfter(space); range.collapse(true); sel.addRange(range)
-  showMention.value = false; syncPrompt()
+  showMention.value = false; mentionRange.value = null; syncPrompt()
 }
 
 function onAddMedia() {
