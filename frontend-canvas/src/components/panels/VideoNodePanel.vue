@@ -319,6 +319,21 @@ async function uploadToImageHost(dataUrl: string): Promise<string> {
   return data.url
 }
 
+async function ensurePublicMediaURL(url: string): Promise<string> {
+  if (/^https?:\/\//i.test(url)) return url
+  // 画布内的历史素材通常保存为 /uploads/...，先读取后转成 data URL 上传图床。
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`无法读取本地参考素材（${response.status}）`)
+  const blob = await response.blob()
+  const dataURL = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error || new Error('读取参考素材失败'))
+    reader.readAsDataURL(blob)
+  })
+  return uploadToImageHost(dataURL)
+}
+
 async function generate() {
   if (!prompt.value || loading.value) return
   loading.value = true
@@ -340,12 +355,7 @@ async function generate() {
     const uploadedUrls: string[] = []
     for (const url of imgUrls) {
       try {
-        if (url.startsWith('data:')) {
-          const uploaded = await uploadToImageHost(url)
-          uploadedUrls.push(uploaded)
-        } else {
-          uploadedUrls.push(url)
-        }
+        uploadedUrls.push(url.startsWith('data:') ? await uploadToImageHost(url) : await ensurePublicMediaURL(url))
       } catch { uploadedUrls.push(url) }
     }
     if (selectedMode.value !== '文生视频' && uploadedUrls.length > 0) {
