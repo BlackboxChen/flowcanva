@@ -48,7 +48,7 @@ function updateModeByImages() {
 const isZhengSDModel = computed(() => /^sd-2\.0(?:fast)?-15s-/.test(selectedModel.value))
 const ratioOptions = computed(() => isZhengSDModel.value ? ['16:9', '9:16'] : ['9:16', '16:9', '1:1'])
 const resolutionOptions = ['480p', '720p', '1080p']
-const durationOptions = computed(() => isZhengSDModel.value ? ['15'] : ['4', '5', '6', '8', '10', '12', '15'])
+const durationOptions = computed(() => isZhengSDModel.value ? ['15'] : Array.from({ length: 29 }, (_, i) => String(i + 2)))
 const countOptions = computed(() => isZhengSDModel.value ? [1] : [1, 2])
 
 watch(countOptions, (options) => {

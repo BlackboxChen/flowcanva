@@ -53,8 +53,8 @@ func buildMegaBYVideoPayload(req VideoGenRequest) (map[string]any, error) {
 	duration := 5
 	if req.Seconds != "" {
 		value, err := strconv.Atoi(req.Seconds)
-		if err != nil || value < 4 || value > 15 {
-			return nil, fmt.Errorf("视频时长必须为 4-15 秒")
+		if err != nil || value < 2 || value > 30 {
+			return nil, fmt.Errorf("视频时长必须为 2-30 秒")
 		} else {
 			duration = value
 		}
