@@ -278,6 +278,15 @@ func (h *Handler) UploadToImageHost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if h.cfg.OSSAccessKeyID != "" && h.cfg.OSSAccessKeySecret != "" && h.cfg.OSSBucket != "" && h.cfg.OSSEndpoint != "" {
+		url, err := h.uploadDataURLToOSS(body.DataURL)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "OSS 上传失败", "detail": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"url": url})
+		return
+	}
 	if h.cfg.ZhengAPIUseDataURLs {
 		c.JSON(http.StatusOK, gin.H{"url": body.DataURL})
 		return
