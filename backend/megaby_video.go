@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func isMegaBYVideoModel(model string) bool { return strings.HasPrefix(model, "megaby-videos-") }
+func isMegaBYVideoModel(model string) bool { return strings.HasPrefix(model, "megaby-") }
 
 func megaBYModelName(model string) string { return strings.TrimPrefix(model, "megaby-") }
 

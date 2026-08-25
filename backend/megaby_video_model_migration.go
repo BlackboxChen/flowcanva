@@ -13,6 +13,24 @@ var megaBYVideoModels = []map[string]any{
 	{"name": "megaby-videos-mini", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{}},
 }
 
+func init() {
+	// MegaBY 将同一组视频能力暴露为多个清晰度/供应商模型；统一加前缀避免与 ZhengAPI 重名。
+	ids := []string{
+		"videos-standard-480p", "videos-standard-720p", "videos-standard-1080p", "videos-standard-4k",
+		"videos-fast-480p", "videos-fast-720p", "videos-mini-480p", "videos-mini-720p",
+		"seedance-2-5", "seedance-2-5-480p", "seedance-2-5-720p", "seedance-2.0-min",
+		"sd-2.0-480p", "sd-2.0-720p", "sd-2.0-1080p", "sd-2.0-4k", "sd2.0-4k",
+		"sd-mini-480p", "sd-mini-720p", "sd-mini", "sd-fast-480p", "sd-fast-720p",
+		"minimax-h3", "minimax-h3-f", "minimax_h3_image_audio_to_video_v2", "minimax_h3_image_audio_to_video_v2_15s",
+		"sd2-pro", "sd2-pro-933-480", "sd2-mini", "sd2-pro-max", "sd2-pro-max-480", "sd2-pro-max-fast",
+		"alibaba/wan-3.0", "grok-imagine-video", "grok-imagine-video-1.5-fast", "grok-imagine-video-1.5-preview",
+		"happyhorse-1.0", "kling-video-3.0", "sora-2", "sora-2-pro",
+	}
+	for _, id := range ids {
+		megaBYVideoModels = append(megaBYVideoModels, map[string]any{"name": "megaby-" + id, "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{}})
+	}
+}
+
 func ensureMegaBYVideoModels(db *sql.DB, log *slog.Logger) error {
 	var raw string
 	if err := db.QueryRow(`SELECT extra_config FROM node_configs WHERE node_type='video'`).Scan(&raw); err != nil {
