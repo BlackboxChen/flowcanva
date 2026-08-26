@@ -38,8 +38,8 @@ func (h *Handler) uploadDataURLToOSS(dataURL string) (string, error) {
 		ext = ".webp"
 	}
 	key := fmt.Sprintf("flowcanva/%d%s", time.Now().UnixNano(), ext)
-	// OSS 桶启用了禁止二级域名访问策略，必须使用 bucket.endpoint 三级域名。
-	resource := "/" + key
+	// OSS 使用桶三级域名访问，但签名规范仍包含 bucket/object 资源路径。
+	resource := "/" + h.cfg.OSSBucket + "/" + key
 	date := time.Now().UTC().Format(http.TimeFormat)
 	md5sum := md5.Sum(data)
 	contentMD5 := base64.StdEncoding.EncodeToString(md5sum[:])
