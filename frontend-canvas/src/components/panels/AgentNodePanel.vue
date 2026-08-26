@@ -36,6 +36,7 @@ interface UploadImage {
   id: number
   name: string
   dataUrl: string
+  mediaType?: 'image' | 'video' | 'audio'
 }
 const images = ref<UploadImage[]>([])
 let imageCounter = 0
@@ -50,20 +51,25 @@ const contentPlain = ref('')
 
 const connectedImages = ref<Map<string, UploadImage>>(new Map())
 
-// 连线输入：资产图片
+// 连线输入：资产（图片、视频、音频均可被 @ 引用）
 watch(() => props.nodeInputs, (inputs) => {
   if (!inputs) return
   const currentEdgeIds = new Set<string>()
   for (const inp of inputs) {
-    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image') && inp.data?.dataUrl) {
+    const sourceUrl = inp.data?.dataUrl || inp.data?.url
+    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && sourceUrl) {
       currentEdgeIds.add(inp.edgeId)
       if (!connectedImages.value.has(inp.edgeId)) {
         imageCounter++
-        compressImage(inp.data.dataUrl).then(compressed => {
-          const img = { id: imageCounter, name: `图片${imageCounter}`, dataUrl: compressed }
+        const mediaType = inp.data?.mediaType || (inp.sourceNodeType === 'video' ? 'video' : inferMediaType(sourceUrl))
+        const name = inp.data?.name || inp.data?.filename || `${mediaType === 'audio' ? '音频' : mediaType === 'video' ? '视频' : '图片'}${imageCounter}`
+        const add = (dataUrl: string) => {
+          const img = { id: imageCounter, name, dataUrl, mediaType }
           connectedImages.value.set(inp.edgeId, img)
           images.value.push(img)
-        })
+        }
+        if (mediaType === 'image') compressImage(sourceUrl).then(add)
+        else add(sourceUrl)
       }
     }
   }
@@ -74,6 +80,12 @@ watch(() => props.nodeInputs, (inputs) => {
     }
   }
 }, { immediate: true, deep: true })
+
+function inferMediaType(url: string): 'image' | 'video' | 'audio' {
+  if (/\.(mp4|webm|mov|avi|mkv)(?:\?|$)/i.test(url)) return 'video'
+  if (/\.(mp3|wav|ogg|flac|aac|m4a)(?:\?|$)/i.test(url)) return 'audio'
+  return 'image'
+}
 
 // 加载节点数据
 watch(() => props.node, (n) => {
@@ -283,9 +295,10 @@ async function onSend() {
   }
   const userText = contextParts.join('\n\n')
 
-  if (supportsVision && images.value.length > 0) {
+  const imageInputs = images.value.filter(img => !img.mediaType || img.mediaType === 'image')
+  if (supportsVision && imageInputs.length > 0) {
     const userContent: any[] = [{ type: 'text', text: userText }]
-    for (const img of images.value) {
+    for (const img of imageInputs) {
       userContent.push({ type: 'image_url', image_url: { url: img.dataUrl } })
     }
     messages.push({ role: 'user', content: userContent })
@@ -351,7 +364,8 @@ watch(modalOpen, async (v) => {
           class="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/15 cursor-pointer hover:border-white/50 transition-colors"
           @click.stop="previewImg = img"
         >
-          <img :src="img.dataUrl" class="w-full h-full object-cover" />
+          <span v-if="img.mediaType === 'audio'" class="w-full h-full flex items-center justify-center bg-cyan-500/15 text-cyan-300 text-lg">♫</span>
+          <img v-else :src="img.dataUrl" class="w-full h-full object-cover" />
           <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.name }}</span>
           <button class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" @click.stop="removeImage(img)">×</button>
         </div>
@@ -406,7 +420,8 @@ watch(modalOpen, async (v) => {
 
   <Teleport to="body">
     <div v-if="previewImg" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80" @click="previewImg = null">
-      <img :src="previewImg.dataUrl" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" @click.stop />
+      <audio v-if="previewImg.mediaType === 'audio'" :src="previewImg.dataUrl" controls class="max-w-[90vw]" @click.stop />
+      <img v-else :src="previewImg.dataUrl" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" @click.stop />
       <button class="absolute top-4 right-4 btn btn-sm btn-circle bg-white/10 border border-white/30 text-white hover:bg-white/20" @click="previewImg = null">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>

@@ -7,10 +7,11 @@ interface MentionImage {
   name: string
   displayName?: string
   src: string
+  mediaType?: 'image' | 'video' | 'audio'
 }
 
 const props = defineProps<{
-  connectedImages: { id: number | string; name: string; displayName?: string; dataUrl: string }[]
+  connectedImages: { id: number | string; name: string; displayName?: string; dataUrl: string; mediaType?: 'image' | 'video' | 'audio' }[]
   filter: string
 }>()
 
@@ -63,8 +64,14 @@ function loadMore() {
   visibleCount.value += PAGE_SIZE
 }
 
-function selectImg(item: { id: any; name: string; displayName?: string; src: string }) {
-  emit('insert', { id: item.id, name: item.name, displayName: item.displayName, src: item.src })
+function selectImg(item: { id: any; name: string; displayName?: string; src: string; mediaType?: 'image' | 'video' | 'audio' }) {
+  emit('insert', { id: item.id, name: item.name, displayName: item.displayName, src: item.src, mediaType: item.mediaType })
+}
+
+function assetMediaType(url: string): 'image' | 'video' | 'audio' {
+  if (/\.(mp4|webm|mov|avi|mkv)(?:\?|$)/i.test(url)) return 'video'
+  if (/\.(mp3|wav|ogg|flac|aac|m4a)(?:\?|$)/i.test(url)) return 'audio'
+  return 'image'
 }
 </script>
 
@@ -76,9 +83,10 @@ function selectImg(item: { id: any; name: string; displayName?: string; src: str
       <button
         v-for="img in filteredConnected" :key="`c-${img.id}`"
         class="flex items-center gap-2 w-full px-3 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
-        @click="selectImg({ id: img.id, name: img.name, displayName: img.displayName, src: img.dataUrl })"
+        @click="selectImg({ id: img.id, name: img.name, displayName: img.displayName, src: img.dataUrl, mediaType: img.mediaType })"
       >
-        <img :src="img.dataUrl" class="w-5 h-5 rounded object-cover shrink-0" />
+        <img v-if="img.mediaType !== 'audio'" :src="img.dataUrl" class="w-5 h-5 rounded object-cover shrink-0" />
+        <span v-else class="w-5 h-5 rounded bg-cyan-500/15 text-cyan-300 flex items-center justify-center shrink-0">♫</span>
         <span>@{{ img.displayName || img.name }}</span>
       </button>
       <div v-if="filteredConnected.length === 0" class="px-3 py-1 text-[11px] text-white/25">无</div>
@@ -119,9 +127,10 @@ function selectImg(item: { id: any; name: string; displayName?: string; src: str
       <button
         v-for="a in displayAssets" :key="`a-${a.id}`"
         class="group flex items-center gap-2 w-full px-3 py-1.5 text-left text-xs text-white/80 hover:bg-white/10"
-        @click="selectImg({ id: a.id, name: a.filename, src: a.url })"
+        @click="selectImg({ id: a.id, name: a.filename, src: a.url, mediaType: assetMediaType(a.url) })"
       >
-        <img :src="a.url" class="w-5 h-5 rounded object-cover shrink-0" />
+        <img v-if="assetMediaType(a.url) !== 'audio'" :src="a.url" class="w-5 h-5 rounded object-cover shrink-0" />
+        <span v-else class="w-5 h-5 rounded bg-cyan-500/15 text-cyan-300 flex items-center justify-center shrink-0">♫</span>
         <span class="flex-1 truncate">{{ a.filename }}</span>
       </button>
       <div v-if="displayAssets.length === 0" class="px-3 py-1 text-[11px] text-white/25">无</div>

@@ -121,19 +121,22 @@ watch(() => props.nodeInputs, (inputs) => {
   if (!inputs) return
   const currentEdgeIds = new Set<string>()
   for (const inp of inputs) {
-    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && inp.data?.dataUrl) {
+    const sourceUrl = inp.data?.dataUrl || inp.data?.url
+    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && sourceUrl) {
       currentEdgeIds.add(inp.edgeId)
       if (!connectedImages.value.has(inp.edgeId)) {
         imageCounter++
         const localId = imageCounter
-        compressImage(inp.data.dataUrl).then(compressed => {
-          const mediaType = inp.data.mediaType === 'video' ? 'video' as const : 'image' as const
-          const img = { id: localId, name: `文件${localId}`, dataUrl: compressed, mediaType }
+        const mediaType = inp.data?.mediaType || inferMediaType(sourceUrl)
+        const add = (dataUrl: string) => {
+          const img = { id: localId, name: inp.data?.name || inp.data?.filename || `文件${localId}`, dataUrl, mediaType }
           connectedImages.value.set(inp.edgeId, img)
           images.value.push(img)
           images.value.sort((a, b) => a.id - b.id)
           images.value.forEach((img, i) => { img.name = `图片${i + 1}` })
-        })
+        }
+        if (mediaType === 'image') compressImage(sourceUrl).then(add)
+        else add(sourceUrl)
       }
     }
   }
@@ -145,6 +148,12 @@ watch(() => props.nodeInputs, (inputs) => {
   }
   updateModeByImages()
 }, { immediate: true, deep: true })
+
+function inferMediaType(url: string): 'image' | 'video' | 'audio' {
+  if (/\.(mp4|webm|mov|avi|mkv)(?:\?|$)/i.test(url)) return 'video'
+  if (/\.(mp3|wav|ogg|flac|aac|m4a)(?:\?|$)/i.test(url)) return 'audio'
+  return 'image'
+}
 
 function syncModels() {
   if (!props.node) return

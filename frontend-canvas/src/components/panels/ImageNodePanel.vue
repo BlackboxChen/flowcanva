@@ -24,9 +24,9 @@ const promptHtml = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const modalOpen = ref(false)
-const images = ref<{ id: number; url: string; name?: string }[]>([])
+const images = ref<{ id: number; url: string; name?: string; mediaType?: 'image' | 'video' | 'audio' }[]>([])
 const generatedImages = ref<{ id: number; url: string }[]>([])
-const connectedImages = ref<Map<string, { id: string; url: string; name: string; displayName?: string }>>(new Map())
+const connectedImages = ref<Map<string, { id: string; url: string; name: string; displayName?: string; mediaType?: 'image' | 'video' | 'audio' }>>(new Map())
 let imageCounter = 0
 const previewImg = ref<{ id: number | string; url: string } | null>(null)
 
@@ -70,6 +70,7 @@ interface DisplayImage {
   label: string
   displayLabel: string
   isRef: boolean
+  mediaType?: 'image' | 'video' | 'audio'
 }
 
 const allDisplayImages = ref<DisplayImage[]>([])
@@ -93,11 +94,11 @@ watch(resolutionOptions, (options) => {
 function rebuildDisplay() {
   const list: DisplayImage[] = []
   for (const [, img] of connectedImages.value) {
-    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: img.displayName || img.name, isRef: true })
+    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: img.displayName || img.name, isRef: true, mediaType: img.mediaType })
   }
   for (const img of images.value) {
     const label = img.name || '上传'
-    list.push({ id: img.id, url: img.url, label, displayLabel: label, isRef: false })
+    list.push({ id: img.id, url: img.url, label, displayLabel: label, isRef: false, mediaType: img.mediaType })
   }
   allDisplayImages.value = list
   nextTick(refreshMentionThumbnails)
@@ -144,15 +145,17 @@ watch(() => props.nodeInputs, (inputs) => {
   if (!inputs) return
   const currentEdgeIds = new Set<string>()
   for (const inp of inputs) {
-    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image') && inp.data?.dataUrl) {
+    const sourceUrl = inp.data?.dataUrl || inp.data?.url
+    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && sourceUrl) {
       currentEdgeIds.add(inp.edgeId)
       const name = typeof inp.data.name === 'string' && inp.data.name.trim()
         ? inp.data.name.trim()
         : `参考-${inp.sourceNodeId.slice(-6)}`
       const current = connectedImages.value.get(inp.edgeId)
       const displayName = inp.sourceNodeName || name
-      if (!current || current.id !== inp.sourceNodeId || current.url !== inp.data.dataUrl || current.name !== name || current.displayName !== displayName) {
-        connectedImages.value.set(inp.edgeId, { id: inp.sourceNodeId, url: inp.data.dataUrl, name, displayName })
+      const mediaType = inp.data?.mediaType || inferMediaType(sourceUrl)
+      if (!current || current.id !== inp.sourceNodeId || current.url !== sourceUrl || current.name !== name || current.displayName !== displayName) {
+        connectedImages.value.set(inp.edgeId, { id: inp.sourceNodeId, url: sourceUrl, name, displayName, mediaType })
       }
     }
   }
@@ -163,6 +166,12 @@ watch(() => props.nodeInputs, (inputs) => {
   }
   rebuildDisplay()
 }, { immediate: true, deep: true })
+
+function inferMediaType(url: string): 'image' | 'video' | 'audio' {
+  if (/\.(mp4|webm|mov|avi|mkv)(?:\?|$)/i.test(url)) return 'video'
+  if (/\.(mp3|wav|ogg|flac|aac|m4a)(?:\?|$)/i.test(url)) return 'audio'
+  return 'image'
+}
 
 function syncModels() {
   if (!props.node) return
@@ -357,7 +366,7 @@ function handleMention(anchor: 'inline' | 'modal') {
   else { showMention.value = false }
 }
 
-function insertMention(img: { id: any; name: string; displayName?: string; src: string }) {
+function insertMention(img: { id: any; name: string; displayName?: string; src: string; mediaType?: 'image' | 'video' | 'audio' }) {
   const el = mentionAnchor.value === 'modal' ? modalContentEditable.value : editableRef.value; if (!el) return
   const sel = window.getSelection(); if (!sel?.rangeCount) return
   const range = sel.getRangeAt(0); const node = range.startContainer
@@ -367,7 +376,7 @@ function insertMention(img: { id: any; name: string; displayName?: string; src: 
   range.setStart(node, pos - m[0].length); range.setEnd(node, pos); range.deleteContents()
   if (!allDisplayImages.value.some(item => item.url === img.src)) {
     imageCounter++
-    images.value.push({ id: imageCounter, name: img.name, url: img.src })
+    images.value.push({ id: imageCounter, name: img.name, url: img.src, mediaType: img.mediaType })
     rebuildDisplay()
   }
   const chip = document.createElement('span')
@@ -468,7 +477,7 @@ async function generate() {
       if (modelConfig.protocol) body.protocol = modelConfig.protocol
     }
     // 传入连线参考图
-    const refImages = referencesForRequest().map(image => image.url)
+    const refImages = referencesForRequest().filter(image => image.mediaType !== 'audio' && image.mediaType !== 'video').map(image => image.url)
     if (refImages.length > 16) throw new Error('参考图最多支持 16 张，请删除多余图片后重试')
     if (refImages.length > 0) {
       body.images = refImages
@@ -572,7 +581,8 @@ watch(modalOpen, async (v) => {
           <span class="text-[8px] leading-none">识图</span>
         </div>
         <div v-for="img in allDisplayImages" :key="img.id" class="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-white/15 cursor-pointer hover:border-white/50 transition-colors" @click.stop="previewImg = img">
-          <img :src="img.url" class="w-full h-full object-cover" />
+          <span v-if="img.mediaType === 'audio'" class="w-full h-full flex items-center justify-center bg-cyan-500/15 text-cyan-300 text-lg">♫</span>
+          <img v-else :src="img.url" class="w-full h-full object-cover" />
           <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.displayLabel }}</span>
           <button v-if="!img.isRef" type="button" class="absolute top-0 right-0 z-10 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" title="删除参考图" @pointerdown.stop @click.stop="removeReference({ id: img.id, url: img.url })">×</button>
         </div>
@@ -591,7 +601,7 @@ watch(modalOpen, async (v) => {
       </div>
 
       <div v-if="showMention" class="relative">
-        <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url }))" :filter="mentionFilter" @insert="insertMention" />
+        <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
       </div>
 
       <div v-if="errorMessage" class="mb-2 flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
