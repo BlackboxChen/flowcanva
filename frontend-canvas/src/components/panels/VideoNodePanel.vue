@@ -328,8 +328,8 @@ async function uploadToImageHost(dataUrl: string): Promise<string> {
   return data.url
 }
 
-async function ensurePublicMediaURL(url: string): Promise<string> {
-  if (/^https?:\/\//i.test(url)) return url
+async function ensurePublicMediaURL(url: string, forceHost = false): Promise<string> {
+  if (!forceHost && /^https?:\/\//i.test(url)) return url
   // 画布内的历史素材通常保存为 /uploads/...，先读取后转成 data URL 上传图床。
   const response = await fetch(url)
   if (!response.ok) throw new Error(`无法读取本地参考素材（${response.status}）`)
@@ -368,9 +368,12 @@ async function generate() {
       body.audio_urls = publicAudRefs
     }
     const uploadedUrls: string[] = []
+    const forceImageHost = /wan[-_]?3(?:\.0)?/i.test(selectedModel.value)
     for (const url of imgUrls) {
       try {
-        uploadedUrls.push(url.startsWith('data:') ? await uploadToImageHost(url) : await ensurePublicMediaURL(url))
+        uploadedUrls.push(url.startsWith('data:')
+          ? await uploadToImageHost(url)
+          : await ensurePublicMediaURL(url, forceImageHost))
       } catch { uploadedUrls.push(url) }
     }
     if (selectedMode.value !== '文生视频' && uploadedUrls.length > 0) {
