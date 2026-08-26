@@ -321,7 +321,7 @@ async function uploadToImageHost(dataUrl: string): Promise<string> {
   const res = await fetch('/api/upload-image-host', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data_url: dataUrl }),
+    body: JSON.stringify({ data_url: dataUrl, force_host: true }),
   })
   if (!res.ok) throw new Error('upload failed')
   const data = await res.json()
@@ -360,7 +360,13 @@ async function generate() {
     const vidRefs = images.value.filter(i => i.mediaType === 'video').map(i => i.dataUrl).filter(Boolean)
     const audRefs = images.value.filter(i => i.mediaType === 'audio').map(i => i.dataUrl).filter(Boolean)
     if (vidRefs.length > 0) body.video_urls = vidRefs
-    if (audRefs.length > 0) body.audio_urls = audRefs
+    // MegaBY 需要能从公网读取音频；本地 /uploads 地址先上传图床再提交。
+    if (audRefs.length > 0) {
+      const publicAudRefs = await Promise.all(audRefs.map(async url => {
+        try { return await ensurePublicMediaURL(url) } catch { return url }
+      }))
+      body.audio_urls = publicAudRefs
+    }
     const uploadedUrls: string[] = []
     for (const url of imgUrls) {
       try {

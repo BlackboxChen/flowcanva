@@ -272,7 +272,8 @@ func findVideoURL(data interface{}) string {
 
 func (h *Handler) UploadToImageHost(c *gin.Context) {
 	var body struct {
-		DataURL string `json:"data_url"`
+		DataURL   string `json:"data_url"`
+		ForceHost bool   `json:"force_host"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -287,13 +288,35 @@ func (h *Handler) UploadToImageHost(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"url": url})
 		return
 	}
-	if h.cfg.ZhengAPIUseDataURLs {
+	if h.cfg.ZhengAPIUseDataURLs && !body.ForceHost {
 		c.JSON(http.StatusOK, gin.H{"url": body.DataURL})
 		return
 	}
-	b64 := strings.TrimPrefix(body.DataURL, "data:image/png;base64,")
-	b64 = strings.TrimPrefix(b64, "data:image/jpeg;base64,")
-	b64 = strings.TrimPrefix(b64, "data:image/webp;base64,")
+	b64 := body.DataURL
+	filename := "comfyui.jpg"
+	if strings.HasPrefix(b64, "data:") {
+		parts := strings.SplitN(b64, ",", 2)
+		if len(parts) != 2 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid data URL"})
+			return
+		}
+		mimeType := strings.TrimPrefix(strings.SplitN(parts[0], ";", 2)[0], "data:")
+		b64 = parts[1]
+		switch mimeType {
+		case "audio/mpeg":
+			filename = "reference.mp3"
+		case "audio/wav", "audio/x-wav":
+			filename = "reference.wav"
+		case "audio/ogg":
+			filename = "reference.ogg"
+		case "video/mp4":
+			filename = "reference.mp4"
+		case "image/jpeg":
+			filename = "comfyui.jpg"
+		case "image/webp":
+			filename = "comfyui.webp"
+		}
+	}
 	buf, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid base64"})
@@ -301,7 +324,7 @@ func (h *Handler) UploadToImageHost(c *gin.Context) {
 	}
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	part, _ := w.CreateFormFile("file", "comfyui.jpg")
+	part, _ := w.CreateFormFile("file", filename)
 	part.Write(buf)
 	w.Close()
 	req, _ := http.NewRequest("POST", "https://img.remit.ee/api/upload", &b)
