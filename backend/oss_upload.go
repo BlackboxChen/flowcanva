@@ -38,7 +38,8 @@ func (h *Handler) uploadDataURLToOSS(dataURL string) (string, error) {
 		ext = ".webp"
 	}
 	key := fmt.Sprintf("flowcanva/%d%s", time.Now().UnixNano(), ext)
-	resource := "/" + h.cfg.OSSBucket + "/" + key
+	// OSS 桶启用了禁止二级域名访问策略，必须使用 bucket.endpoint 三级域名。
+	resource := "/" + key
 	date := time.Now().UTC().Format(http.TimeFormat)
 	md5sum := md5.Sum(data)
 	contentMD5 := base64.StdEncoding.EncodeToString(md5sum[:])
@@ -51,7 +52,8 @@ func (h *Handler) uploadDataURLToOSS(dataURL string) (string, error) {
 	if err != nil || parsedEndpoint.Host == "" {
 		return "", fmt.Errorf("invalid OSS endpoint")
 	}
-	requestURL := endpoint + "/" + h.cfg.OSSBucket + "/" + key
+	requestHost := h.cfg.OSSBucket + "." + parsedEndpoint.Host
+	requestURL := parsedEndpoint.Scheme + "://" + requestHost + "/" + key
 	req, err := http.NewRequest(http.MethodPut, requestURL, bytes.NewReader(data))
 	if err != nil {
 		return "", err
@@ -69,5 +71,5 @@ func (h *Handler) uploadDataURLToOSS(dataURL string) (string, error) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return "", fmt.Errorf("OSS 返回 HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	return endpoint + "/" + h.cfg.OSSBucket + "/" + key, nil
+	return requestURL, nil
 }
