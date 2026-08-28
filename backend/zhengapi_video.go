@@ -181,6 +181,12 @@ func decodeZhengVideoResponse(resp *http.Response) (map[string]any, error) {
 	_ = json.Unmarshal(body, &data)
 	if resp.StatusCode >= 400 {
 		message := zhengVideoFailure(data)
+		if message == "未知错误" {
+			message = strings.TrimSpace(string(body))
+			if message == "" {
+				message = resp.Status
+			}
+		}
 		return nil, fmt.Errorf("上游返回 %d: %s", resp.StatusCode, message)
 	}
 	return data, nil
