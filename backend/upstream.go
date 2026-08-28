@@ -8,8 +8,22 @@ import (
 var errAPIKeyNotConfigured = errors.New("api_key 未配置，请在管理台节点配置中设置，或配置 ZHENGAPI_API_KEY")
 var errImageAPIKeyNotConfigured = errors.New("图片 api_key 未配置，请在管理台节点配置中设置，或配置 GEEKNOW_API_KEY")
 var errMegaBYAPIKeyNotConfigured = errors.New("MegaBY 视频 api_key 未配置，请在管理台节点配置中设置，或配置 MEGABY_API_KEY")
+var errGeekNowVideoAPIKeyNotConfigured = errors.New("GeekNow 视频 api_key 未配置，请在管理台节点配置中设置，或配置 GEEKNOW_API_KEY")
 
 func (h *Handler) resolveVideoUpstream(req VideoGenRequest) (string, string, error) {
+	if req.Protocol == "geeknow_video" || req.Model == "wan3.0-video" {
+		if strings.TrimSpace(req.APIKey) != "" {
+			baseURL := strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
+			if baseURL == "" {
+				baseURL = "https://www.geeknow.top/v1"
+			}
+			return baseURL, req.APIKey, nil
+		}
+		if h.cfg.GeekNowBaseURL == "" || h.cfg.GeekNowAPIKey == "" {
+			return "", "", errGeekNowVideoAPIKeyNotConfigured
+		}
+		return normalizeVersionedBaseURL(h.cfg.GeekNowBaseURL), h.cfg.GeekNowAPIKey, nil
+	}
 	if isMegaBYVideoModel(req.Model) || req.Protocol == "megaby_video" {
 		if strings.TrimSpace(req.APIKey) != "" {
 			baseURL := strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")

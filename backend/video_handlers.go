@@ -57,6 +57,10 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 		h.generateZhengAPIVideo(c, req, baseURL, apiKey)
 		return
 	}
+	if req.Protocol == "geeknow_video" || req.Model == "wan3.0-video" {
+		h.generateGeekNowVideo(c, req, baseURL, apiKey)
+		return
+	}
 	if isMegaBYVideoModel(req.Model) || req.Protocol == "megaby_video" {
 		h.generateMegaBYVideo(c, req, baseURL, apiKey)
 		return

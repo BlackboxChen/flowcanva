@@ -154,6 +154,9 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 	if err := ensureZhengAPIVideoModels(db, log); err != nil {
 		return err
 	}
+	if err := ensureGeekNowVideoModels(db, log); err != nil {
+		return err
+	}
 	if err := ensureMegaBYVideoModels(db, log); err != nil {
 		return err
 	}

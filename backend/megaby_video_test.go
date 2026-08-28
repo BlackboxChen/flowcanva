@@ -7,13 +7,13 @@ import (
 
 func TestBuildMegaBYVideoPayloadUsesPublicModelAndDocumentFields(t *testing.T) {
 	payload, err := buildMegaBYVideoPayload(VideoGenRequest{
-		Model: "megaby-videos-mini", Prompt: "a test", Seconds: "8", Ratio: "16:9", Resolution: "720p",
+		Model: "megaby-alibaba/wan-3.0", Prompt: "a test", Seconds: "8", Ratio: "16:9", Resolution: "720p",
 		ImageURLs: []string{"https://example.com/a.jpg"}, VideoURLs: []string{"https://example.com/a.mp4"}, AudioURLs: []string{"https://example.com/a.mp3"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if payload["model"] != "videos-mini" || payload["duration"] != 8 {
+	if payload["model"] != "alibaba/wan-3.0" || payload["duration"] != 8 {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
 	if _, ok := payload["referenceImages"]; !ok {
@@ -24,6 +24,28 @@ func TestBuildMegaBYVideoPayloadUsesPublicModelAndDocumentFields(t *testing.T) {
 	}
 	if _, ok := payload["referenceAudios"]; !ok {
 		t.Fatal("referenceAudios missing")
+	}
+}
+
+func TestMergeMegaBYVideoModelsRemovesOtherMegaBYModels(t *testing.T) {
+	raw := `{"models":[{"name":"megaby-videos-mini","channel":"MegaBY"},{"name":"sd-2.0-15s-16x9-480p","channel":"ZhengAPI"}]}`
+	merged, _, err := mergeMegaBYVideoModels(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var extra map[string]any
+	if err := json.Unmarshal([]byte(merged), &extra); err != nil {
+		t.Fatal(err)
+	}
+	models := extra["models"].([]any)
+	if len(models) != 2 {
+		t.Fatalf("unexpected models: %#v", models)
+	}
+	for _, item := range models {
+		name := item.(map[string]any)["name"]
+		if name == "megaby-videos-mini" {
+			t.Fatalf("legacy MegaBY model was retained")
+		}
 	}
 }
 
