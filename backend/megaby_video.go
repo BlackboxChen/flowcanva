@@ -14,7 +14,7 @@ func isMegaBYVideoModel(model string) bool { return strings.HasPrefix(model, "me
 func megaBYModelName(model string) string { return strings.TrimPrefix(model, "megaby-") }
 
 func (h *Handler) generateMegaBYVideo(c *gin.Context, req VideoGenRequest, baseURL, apiKey string) {
-	if !isMegaBYVideoModel(req.Model) {
+	if req.Model != "megaby-alibaba/wan-3.0" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的 MegaBY 视频模型"})
 		return
 	}
