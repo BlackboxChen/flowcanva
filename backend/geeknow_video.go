@@ -62,7 +62,8 @@ func createGeekNowVideoTask(c *gin.Context, baseURL, apiKey string, payload map[
 	if err != nil {
 		return "", err
 	}
-	for _, key := range []string{"id", "task_id", "video_id"} {
+	// GeekNow may return both id and task_id; task_id is the pollable identifier.
+	for _, key := range []string{"task_id", "id", "video_id"} {
 		if id, _ := data[key].(string); id != "" {
 			return id, nil
 		}
@@ -81,7 +82,7 @@ func pollGeekNowVideoTask(c *gin.Context, baseURL, apiKey, taskID string) (strin
 			return "", c.Request.Context().Err()
 		case <-time.After(5 * time.Second):
 		}
-		req, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, base+"/video/generations/"+taskID, nil)
+		req, _ := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, base+"/videos/"+taskID, nil)
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 		resp, err := pollClient.Do(req)
 		if err != nil {
@@ -90,6 +91,7 @@ func pollGeekNowVideoTask(c *gin.Context, baseURL, apiKey, taskID string) (strin
 		data, decodeErr := decodeGeekNowResponse(resp)
 		resp.Body.Close()
 		if decodeErr != nil {
+			h.log.Error("geeknow video task poll failed", "task_id", taskID, "error", decodeErr)
 			return "", decodeErr
 		}
 		status := strings.ToLower(extractStatus(data))
@@ -109,9 +111,7 @@ func decodeGeekNowResponse(resp *http.Response) (map[string]any, error) {
 	_ = json.Unmarshal(body, &data)
 	if resp.StatusCode >= 400 {
 		message := zhengVideoFailure(data)
-		if message == "未知错误" {
-			message = strings.TrimSpace(string(body))
-		}
+		if message == "未知错误" || message == "" { message = strings.TrimSpace(string(body)) }
 		return nil, fmt.Errorf("上游返回 %d: %s", resp.StatusCode, message)
 	}
 	return data, nil
