@@ -25,6 +25,7 @@ type Config struct {
 	MegaBYAPIKey        string
 	GeekNowBaseURL      string
 	GeekNowAPIKey       string
+	GeekNowVideoAPIKey  string
 	OSSAccessKeyID      string
 	OSSAccessKeySecret  string
 	OSSBucket           string
@@ -57,6 +58,7 @@ func loadConfig() Config {
 		MegaBYAPIKey:        os.Getenv("MEGABY_API_KEY"),
 		GeekNowBaseURL:      strings.TrimRight(os.Getenv("GEEKNOW_BASE_URL"), "/"),
 		GeekNowAPIKey:       os.Getenv("GEEKNOW_API_KEY"),
+		GeekNowVideoAPIKey:  os.Getenv("GEEKNOW_VIDEO_API_KEY"),
 		OSSAccessKeyID:      os.Getenv("OSS_ACCESS_KEY_ID"),
 		OSSAccessKeySecret:  os.Getenv("OSS_ACCESS_KEY_SECRET"),
 		OSSBucket:           os.Getenv("OSS_BUCKET"),

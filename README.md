@@ -173,7 +173,7 @@ flowcanva/
                    └─→ 节点无 Key：文本/视频使用 ZHENGAPI_*，图片使用 GEEKNOW_*
 ```
 
-> 节点自身配置了 API Key 时，始终使用该节点的 Key 与 Base URL。图片节点未配置 Key 时，成对使用 `GEEKNOW_API_KEY` 与 `GEEKNOW_BASE_URL`；其他节点使用 `ZHENGAPI_*`。
+> 节点自身配置了 API Key 时，始终使用该节点的 Key 与 Base URL。GeekNow 图片使用 `GEEKNOW_API_KEY`，GeekNow 视频使用独立的 `GEEKNOW_VIDEO_API_KEY`；其他节点按各自中转配置解析。
 
 ### GeekNow 图片模型
 
@@ -204,6 +204,7 @@ flowcanva/
 | `ZHENGAPI_USE_DATA_URLS` | `false` | 视频参考图是否直接使用 data URL，避免上传第三方图床 |
 | `GEEKNOW_BASE_URL` | 空 | 图片模型中转站根地址；自动补 `/v1` |
 | `GEEKNOW_API_KEY` | 空 | 图片模型中转站密钥，仅在图片节点未配置 Key 时使用 |
+| `GEEKNOW_VIDEO_API_KEY` | 空 | GeekNow 视频模型专用密钥，与图片密钥分离 |
 
 ## 💬 交流反馈
 

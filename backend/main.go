@@ -20,6 +20,7 @@ func main() {
 		"zhengapi_use_data_urls", cfg.ZhengAPIUseDataURLs,
 		"megaby_video_configured", cfg.MegaBYBaseURL != "" && cfg.MegaBYAPIKey != "",
 		"geeknow_images_configured", cfg.GeekNowBaseURL != "" && cfg.GeekNowAPIKey != "",
+		"geeknow_video_configured", cfg.GeekNowBaseURL != "" && cfg.GeekNowVideoAPIKey != "",
 		"oss_configured", cfg.OSSAccessKeyID != "" && cfg.OSSAccessKeySecret != "" && cfg.OSSBucket != "" && cfg.OSSEndpoint != "",
 	)
 
