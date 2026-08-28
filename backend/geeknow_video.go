@@ -91,7 +91,6 @@ func pollGeekNowVideoTask(c *gin.Context, baseURL, apiKey, taskID string) (strin
 		data, decodeErr := decodeGeekNowResponse(resp)
 		resp.Body.Close()
 		if decodeErr != nil {
-			h.log.Error("geeknow video task poll failed", "task_id", taskID, "error", decodeErr)
 			return "", decodeErr
 		}
 		status := strings.ToLower(extractStatus(data))
@@ -111,7 +110,9 @@ func decodeGeekNowResponse(resp *http.Response) (map[string]any, error) {
 	_ = json.Unmarshal(body, &data)
 	if resp.StatusCode >= 400 {
 		message := zhengVideoFailure(data)
-		if message == "未知错误" || message == "" { message = strings.TrimSpace(string(body)) }
+		if message == "未知错误" || message == "" {
+			message = strings.TrimSpace(string(body))
+		}
 		return nil, fmt.Errorf("上游返回 %d: %s", resp.StatusCode, message)
 	}
 	return data, nil
