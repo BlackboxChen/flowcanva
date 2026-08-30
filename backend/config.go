@@ -42,7 +42,7 @@ func loadConfig() Config {
 		embedded = embedHasContent()
 	}
 	return Config{
-		Port:                envOrDefault("PORT", ":6789"),
+		Port:                envOrDefault("PORT", ":16789"),
 		DBPath:              envOrDefault("DB_PATH", "./data.db"),
 		DevMode:             os.Getenv("DEV_MODE") == "true",
 		Embedded:            embedded,
