@@ -22,7 +22,7 @@ func (h *Handler) generateGeekNowVideo(c *gin.Context, req VideoGenRequest, base
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.log.Info("geeknow video task creating", "model", req.Model)
+	h.log.Info("geeknow video task creating", "model", req.Model, "image_refs", len(req.ImageURLs)+boolToInt(req.ImageURL != ""), "video_refs", len(req.VideoURLs), "audio_refs", len(req.AudioURLs))
 	taskID, err := createGeekNowVideoTask(c, baseURL, apiKey, payload)
 	if err != nil {
 		c.JSON(upstreamErrorStatus(err), gin.H{"error": err.Error()})
@@ -126,7 +126,7 @@ func buildGeekNowVideoPayload(req VideoGenRequest) (map[string]any, error) {
 			return nil, fmt.Errorf("视频时长必须为 2-30 秒")
 		}
 	}
-	payload := map[string]any{"model": "wan3.0-video", "prompt": req.Prompt, "duration": duration}
+	payload := map[string]any{"model": "wan3.0-video", "prompt": normalizeWANReferencePrompt(req.Prompt), "duration": duration}
 	if req.Resolution != "" {
 		payload["resolution"] = strings.ToUpper(req.Resolution)
 	}
@@ -139,16 +139,33 @@ func buildGeekNowVideoPayload(req VideoGenRequest) (map[string]any, error) {
 	}
 	media := make([]map[string]string, 0, len(images)+len(req.VideoURLs)+len(req.AudioURLs))
 	for _, url := range images {
-		media = append(media, map[string]string{"type": "image", "url": url})
+		media = append(media, map[string]string{"type": "reference_image", "url": url})
 	}
 	for _, url := range req.VideoURLs {
-		media = append(media, map[string]string{"type": "video", "url": url})
+		media = append(media, map[string]string{"type": "reference_video", "url": url})
 	}
 	for _, url := range req.AudioURLs {
-		media = append(media, map[string]string{"type": "audio", "url": url})
+		media = append(media, map[string]string{"type": "reference_audio", "url": url})
 	}
 	if len(media) > 0 {
 		payload["media"] = media
 	}
 	return payload, nil
+}
+
+func boolToInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func normalizeWANReferencePrompt(prompt string) string {
+	replacer := strings.NewReplacer(
+		"@图片", "图",
+		"@图像", "图",
+		"@视频", "视频",
+		"@音频", "音频",
+	)
+	return replacer.Replace(prompt)
 }
