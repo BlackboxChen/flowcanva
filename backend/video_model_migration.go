@@ -5,21 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 var zhengAPIVideoModels = []map[string]any{
 	{"name": "sd-2.0-15s-16x9-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0-15s-16x9-720p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0-15s-16x9-1080p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
 	{"name": "sd-2.0-15s-9x16-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0-15s-9x16-720p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0-15s-9x16-1080p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0fast-15s-16x9-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0fast-15s-16x9-720p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0fast-15s-16x9-1080p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0fast-15s-9x16-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0fast-15s-9x16-720p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0fast-15s-9x16-1080p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
+	{"name": "sd-2.0-sec-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
 }
 
 func ensureZhengAPIVideoModels(db *sql.DB, log *slog.Logger) error {
@@ -46,6 +38,22 @@ func mergeZhengAPIVideoModels(raw string) (string, int, error) {
 		}
 	}
 	models, _ := extra["models"].([]any)
+	// Rebuild ZhengAPI presets so removed 720p/1080p/fast models disappear from existing databases.
+	filtered := make([]any, 0, len(models))
+	for _, item := range models {
+		model, ok := item.(map[string]any)
+		if !ok {
+			filtered = append(filtered, item)
+			continue
+		}
+		name, _ := model["name"].(string)
+		channel, _ := model["channel"].(string)
+		if channel == "ZhengAPI" && (containsVideoSuffix(name, "720p") || containsVideoSuffix(name, "1080p") || strings.Contains(name, "sd-2.0fast-")) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	models = filtered
 	existing := map[string]bool{}
 	for _, item := range models {
 		if model, ok := item.(map[string]any); ok {
@@ -65,4 +73,8 @@ func mergeZhengAPIVideoModels(raw string) (string, int, error) {
 	extra["models"] = models
 	merged, err := json.Marshal(extra)
 	return string(merged), added, err
+}
+
+func containsVideoSuffix(name, suffix string) bool {
+	return len(name) >= len(suffix) && name[len(name)-len(suffix):] == suffix
 }

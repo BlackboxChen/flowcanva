@@ -7,7 +7,7 @@ import (
 
 func TestBuildZhengVideoPayloadPreservesReferenceTypesAndDataURLs(t *testing.T) {
 	payload, err := buildZhengVideoPayload(VideoGenRequest{
-		Model: "sd-2.0fast-15s-9x16-1080p", Prompt: "test",
+		Model: "sd-2.0-sec-480p", Prompt: "test",
 		ImageURLs: []string{"data:image/png;base64,aW1hZ2U="},
 		VideoURLs: []string{"data:video/mp4;base64,dmlkZW8="},
 		AudioURLs: []string{"data:audio/wav;base64,YXVkaW8="},
@@ -15,7 +15,7 @@ func TestBuildZhengVideoPayloadPreservesReferenceTypesAndDataURLs(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if payload["seconds"] != "15" || payload["size"] != "1080x1920" {
+	if payload["seconds"] != "15" || payload["size"] != "854x480" {
 		t.Fatalf("unexpected specs: %#v", payload)
 	}
 	input := payload["input"].(map[string]any)
@@ -48,9 +48,8 @@ func TestMergeZhengAPIVideoModelsIsIdempotent(t *testing.T) {
 
 func TestZhengVideoSize(t *testing.T) {
 	cases := map[string]string{
-		"sd-2.0-15s-16x9-480p":      "854x480",
-		"sd-2.0-15s-16x9-720p":      "1280x720",
-		"sd-2.0fast-15s-9x16-1080p": "1080x1920",
+		"sd-2.0-15s-16x9-480p": "854x480",
+		"sd-2.0-sec-480p":      "854x480",
 	}
 	for model, want := range cases {
 		if got := zhengVideoSize(model); got != want {

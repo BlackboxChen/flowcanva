@@ -16,7 +16,10 @@ var zhengVideoPollInterval = 6 * time.Second
 var zhengVideoMaxWait = 10 * time.Minute
 
 func isZhengAPISDModel(model string) bool {
-	return strings.HasPrefix(model, "sd-2.0-15s-") || strings.HasPrefix(model, "sd-2.0fast-15s-")
+	if model == "sd-2.0-sec-480p" {
+		return true
+	}
+	return model == "sd-2.0-15s-16x9-480p" || model == "sd-2.0-15s-9x16-480p"
 }
 
 func (h *Handler) generateZhengAPIVideo(c *gin.Context, req VideoGenRequest, baseURL, apiKey string) {
@@ -88,15 +91,11 @@ func buildZhengVideoPayload(req VideoGenRequest) (map[string]any, error) {
 }
 
 func zhengVideoSize(model string) string {
-	portrait := strings.Contains(model, "-9x16-")
-	resolution := "480p"
-	for _, value := range []string{"1080p", "720p", "480p"} {
-		if strings.HasSuffix(model, "-"+value) {
-			resolution = value
-			break
-		}
+	if model == "sd-2.0-sec-480p" {
+		return "854x480"
 	}
-	landscape := map[string]string{"480p": "854x480", "720p": "1280x720", "1080p": "1920x1080"}[resolution]
+	portrait := strings.Contains(model, "-9x16-")
+	landscape := "854x480"
 	if !portrait {
 		return landscape
 	}

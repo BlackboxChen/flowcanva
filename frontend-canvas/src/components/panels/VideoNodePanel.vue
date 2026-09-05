@@ -45,9 +45,9 @@ function updateModeByImages() {
   }
 }
 
-const isZhengSDModel = computed(() => /^sd-2\.0(?:fast)?-15s-/.test(selectedModel.value))
+const isZhengSDModel = computed(() => /^(?:sd-2\.0-15s-(?:16x9|9x16)-480p|sd-2\.0-sec-480p)$/.test(selectedModel.value))
 const ratioOptions = computed(() => isZhengSDModel.value ? ['16:9', '9:16'] : ['9:16', '16:9', '1:1'])
-const resolutionOptions = ['480p', '720p', '1080p']
+const resolutionOptions = computed(() => isZhengSDModel.value ? ['480p'] : ['480p', '720p', '1080p'])
 const durationOptions = computed(() => isZhengSDModel.value ? ['15'] : Array.from({ length: 29 }, (_, i) => String(i + 2)))
 const countOptions = computed(() => isZhengSDModel.value ? [1] : [1, 2])
 
@@ -159,7 +159,7 @@ function syncModels() {
   if (!props.node) return
   const typeModels = getModels(props.node.node_type)
   // 隐藏内部 Doubao 路由；MegaBY/ZhengAPI 模型保留各自前缀，避免同名冲突。
-  const visibleModels = typeModels.filter(model => !model.startsWith('doubao-'))
+  const visibleModels = typeModels.filter(model => !model.startsWith('doubao-') && !model.includes('fast') && !model.endsWith('720p') && !model.endsWith('1080p'))
   models.value = visibleModels.length > 0 ? visibleModels : ['sd-2.0-15s-16x9-480p']
   if (!models.value.includes(selectedModel.value)) {
     selectedModel.value = models.value.find(model => isZhengAPIVideoModel(model)) || models.value[0]
@@ -167,13 +167,19 @@ function syncModels() {
 }
 
 function isZhengAPIVideoModel(model: string) {
-  return /^sd-2\.0(?:fast)?-15s-(?:16x9|9x16)-(?:480p|720p|1080p)$/.test(model)
+  return /^(?:sd-2\.0-15s-(?:16x9|9x16)-480p|sd-2\.0-sec-480p)$/.test(model)
 }
 
 watch([() => props.node?.node_type, modelInfoMap], syncModels, { immediate: true })
 
 watch(selectedModel, (model) => {
-  const match = model.match(/^sd-2\.0(?:fast)?-15s-(16x9|9x16)-(480p|720p|1080p)$/)
+  if (model === 'sd-2.0-sec-480p') {
+    selectedRatio.value = '16:9'
+    selectedResolution.value = '480p'
+    selectedDuration.value = '15'
+    return
+  }
+  const match = model.match(/^sd-2\.0-15s-(16x9|9x16)-480p$/)
   if (!match) return
   selectedRatio.value = match[1].replace('x', ':')
   selectedResolution.value = match[2]
@@ -182,7 +188,8 @@ watch(selectedModel, (model) => {
 
 watch([selectedRatio, selectedResolution], ([ratio, resolution]) => {
   if (!isZhengSDModel.value) return
-  const family = selectedModel.value.startsWith('sd-2.0fast-') ? 'sd-2.0fast' : 'sd-2.0'
+  if (selectedModel.value === 'sd-2.0-sec-480p') return
+  const family = 'sd-2.0'
   const model = `${family}-15s-${ratio.replace(':', 'x')}-${resolution}`
   if (models.value.includes(model)) selectedModel.value = model
 })
