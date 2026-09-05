@@ -110,9 +110,25 @@ function compressImage(dataUrl: string): Promise<string> {
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       try {
-        const max = 512; let w = img.width, h = img.height
-        if (w > h && w > max) { h = Math.round(h * max / w); w = max }
-        else if (h > max) { w = Math.round(w * max / h); h = max }
+        // MegaBY requires every reference image dimension to be 300-6000px.
+        // Keep the aspect ratio while avoiding the old 512px cap that made
+        // wide or tall images fall below the 300px minimum on one side.
+        const minSide = 300
+        const maxSide = 2048
+        const sourceMin = Math.min(img.width, img.height)
+        const sourceMax = Math.max(img.width, img.height)
+        const scale = Math.min(
+          maxSide / sourceMax,
+          sourceMin < minSide ? minSide / sourceMin : 1,
+          6000 / sourceMax,
+        )
+        let w = Math.max(minSide, Math.round(img.width * scale))
+        let h = Math.max(minSide, Math.round(img.height * scale))
+        if (Math.max(w, h) > 6000) {
+          const fit = 6000 / Math.max(w, h)
+          w = Math.round(w * fit)
+          h = Math.round(h * fit)
+        }
         const c = document.createElement('canvas'); c.width = w; c.height = h
         c.getContext('2d')!.drawImage(img, 0, 0, w, h)
         resolve(c.toDataURL('image/jpeg', 0.7))
