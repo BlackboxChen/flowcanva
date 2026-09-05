@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -43,6 +44,17 @@ func TestMergeZhengAPIVideoModelsIsIdempotent(t *testing.T) {
 	}
 	if len(extra["models"].([]any)) != len(zhengAPIVideoModels)+1 {
 		t.Fatalf("unexpected models: %#v", extra["models"])
+	}
+}
+
+func TestMergeZhengAPIVideoModelsRemovesRetiredPresets(t *testing.T) {
+	raw := `{"models":[{"name":"sd-2.0-15s-16x9-720p","channel":"ZhengAPI"},{"name":"sd-2.0-15s-9x16-1080p","channel":"ZhengAPI"},{"name":"sd-2.0fast-15s-16x9-480p","channel":"ZhengAPI"},{"name":"keep-me","channel":"Custom"}]}`
+	merged, _, err := mergeZhengAPIVideoModels(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(merged, "720p") || strings.Contains(merged, "1080p") || strings.Contains(merged, "fast") || !strings.Contains(merged, "keep-me") || !strings.Contains(merged, "sd-2.0-sec-480p") {
+		t.Fatalf("retired or new models not handled: %s", merged)
 	}
 }
 
