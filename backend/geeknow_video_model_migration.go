@@ -7,9 +7,7 @@ import (
 	"log/slog"
 )
 
-var geekNowVideoModels = []map[string]any{
-	{"name": "wan3.0-video", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "protocol": "geeknow_video", "parameters": map[string]any{}},
-}
+var geekNowVideoModels = []map[string]any{}
 
 func ensureGeekNowVideoModels(db *sql.DB, log *slog.Logger) error {
 	var raw string
@@ -35,6 +33,16 @@ func mergeGeekNowVideoModels(raw string) (string, int, error) {
 		}
 	}
 	models, _ := extra["models"].([]any)
+	// GeekNow 的 wan3.0-video 已下线，从现有配置中移除。
+	filtered := make([]any, 0, len(models))
+	for _, item := range models {
+		model, ok := item.(map[string]any)
+		if ok && model["channel"] == "GeekNow" && model["name"] == "wan3.0-video" {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	models = filtered
 	existing := map[string]bool{}
 	for _, item := range models {
 		if model, ok := item.(map[string]any); ok {

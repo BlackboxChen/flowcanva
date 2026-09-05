@@ -160,6 +160,17 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 	if err := ensureMegaBYVideoModels(db, log); err != nil {
 		return err
 	}
+	var orderedVideoConfig string
+	if err := db.QueryRow(`SELECT extra_config FROM node_configs WHERE node_type='video'`).Scan(&orderedVideoConfig); err != nil {
+		return err
+	}
+	orderedVideoConfig, err := orderVideoModelsByChannel(orderedVideoConfig)
+	if err != nil {
+		return err
+	}
+	if _, err := db.Exec(`UPDATE node_configs SET extra_config=?, updated_at=datetime('now','localtime') WHERE node_type='video'`, orderedVideoConfig); err != nil {
+		return err
+	}
 
 	// ensure upload dir exists
 	_ = os.MkdirAll("uploads", 0755)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 )
 
 var megaBYVideoModels = []map[string]any{
@@ -30,11 +31,42 @@ func ensureMegaBYVideoModels(db *sql.DB, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	merged, err = orderVideoModelsByChannel(merged)
+	if err != nil {
+		return err
+	}
 	if _, err := db.Exec(`UPDATE node_configs SET extra_config=?, updated_at=datetime('now','localtime') WHERE node_type='video'`, merged); err != nil {
 		return err
 	}
 	log.Info("megaby video models registered", "added", added)
 	return nil
+}
+
+func orderVideoModelsByChannel(raw string) (string, error) {
+	extra := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &extra); err != nil {
+		return "", fmt.Errorf("parse ordered video extra_config: %w", err)
+	}
+	models, _ := extra["models"].([]any)
+	priority := map[string]int{"ZhengAPI": 0, "MegaBY": 1, "GeekNow": 2}
+	sort.SliceStable(models, func(i, j int) bool {
+		left, _ := models[i].(map[string]any)
+		right, _ := models[j].(map[string]any)
+		leftChannel, _ := left["channel"].(string)
+		rightChannel, _ := right["channel"].(string)
+		lp, lok := priority[leftChannel]
+		rp, rok := priority[rightChannel]
+		if !lok {
+			lp = 99
+		}
+		if !rok {
+			rp = 99
+		}
+		return lp < rp
+	})
+	extra["models"] = models
+	ordered, err := json.Marshal(extra)
+	return string(ordered), err
 }
 
 func mergeMegaBYVideoModels(raw string) (string, int, error) {
