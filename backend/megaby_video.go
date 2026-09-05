@@ -9,12 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func isMegaBYVideoModel(model string) bool { return strings.HasPrefix(model, "megaby-") }
+func isMegaBYVideoModel(model string) bool {
+	return strings.HasPrefix(model, "megaby-") || isConfiguredMegaBYModel(model)
+}
 
 func megaBYModelName(model string) string { return strings.TrimPrefix(model, "megaby-") }
 
 func (h *Handler) generateMegaBYVideo(c *gin.Context, req VideoGenRequest, baseURL, apiKey string) {
-	if req.Model != "megaby-alibaba/wan-3.0" {
+	if !isConfiguredMegaBYModel(req.Model) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的 MegaBY 视频模型"})
 		return
 	}

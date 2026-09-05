@@ -9,6 +9,13 @@ import (
 
 var megaBYVideoModels = []map[string]any{
 	{"name": "megaby-alibaba/wan-3.0", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{}},
+	{"name": "seedance-2.0", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.16"}},
+	{"name": "seedance-2.5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.26"}},
+	{"name": "seedance2_5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.24"}},
+	{"name": "videos-standard", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.28"}},
+	{"name": "seedance-2-5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.35"}},
+	{"name": "sd-2.0-480p", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.5"}},
+	{"name": "minimax-h3-f", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.03"}},
 }
 
 func init() {
@@ -38,7 +45,7 @@ func mergeMegaBYVideoModels(raw string) (string, int, error) {
 		}
 	}
 	models, _ := extra["models"].([]any)
-	// MegaBY 仅保留 Wan 3.0，清理此前已写入的其他 MegaBY 模型。
+	// 清理此前已写入、但不在当前 MegaBY 预置列表中的模型。
 	filtered := make([]any, 0, len(models)+len(megaBYVideoModels))
 	for _, item := range models {
 		model, ok := item.(map[string]any)
@@ -47,7 +54,7 @@ func mergeMegaBYVideoModels(raw string) (string, int, error) {
 		}
 		name, _ := model["name"].(string)
 		channel, _ := model["channel"].(string)
-		if channel == "MegaBY" && name != "megaby-alibaba/wan-3.0" {
+		if channel == "MegaBY" && !isConfiguredMegaBYModel(name) {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -72,4 +79,13 @@ func mergeMegaBYVideoModels(raw string) (string, int, error) {
 	extra["models"] = models
 	merged, err := json.Marshal(extra)
 	return string(merged), added, err
+}
+
+func isConfiguredMegaBYModel(name string) bool {
+	for _, model := range megaBYVideoModels {
+		if model["name"] == name {
+			return true
+		}
+	}
+	return false
 }

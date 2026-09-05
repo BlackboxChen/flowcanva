@@ -17,6 +17,12 @@ const emit = defineEmits<{
 
 const { modelInfoMap, getModels, getModelConfig } = useNodeConfigs()
 
+function modelLabel(model: string) {
+  const info = modelInfoMap.value.video?.find(item => item.name === model)
+  const note = info?.parameters?.note
+  return note ? `${model} (${note})` : model
+}
+
 const prompt = ref('')
 const promptHtml = ref('')
 const loading = ref(false)
@@ -470,7 +476,7 @@ watch(modalOpen, async (v) => {
         <div class="flex items-center gap-1">
           <div class="relative inline-flex items-center">
             <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-[120px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
-              <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ m }}</option>
+              <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ modelLabel(m) }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
@@ -550,7 +556,7 @@ watch(modalOpen, async (v) => {
           <div class="flex items-center gap-1 flex-wrap">
             <div class="relative inline-flex items-center">
               <select v-model="selectedModel" class="text-xs bg-white/5 border border-white/10 rounded text-white/70 hover:text-white h-7 py-0 pl-1.5 pr-6 outline-none appearance-none cursor-pointer [color-scheme:dark]">
-                <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ m }}</option>
+                <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ modelLabel(m) }}</option>
               </select>
               <svg class="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-white/70" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </div>

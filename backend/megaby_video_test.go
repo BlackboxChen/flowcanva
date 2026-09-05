@@ -38,7 +38,7 @@ func TestMergeMegaBYVideoModelsRemovesOtherMegaBYModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	models := extra["models"].([]any)
-	if len(models) != 2 {
+	if len(models) != len(megaBYVideoModels)+1 {
 		t.Fatalf("unexpected models: %#v", models)
 	}
 	for _, item := range models {
