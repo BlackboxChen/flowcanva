@@ -16,6 +16,7 @@ var megaBYVideoModels = []map[string]any{
 	{"name": "videos-standard", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.28"}},
 	{"name": "seedance-2-5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.35"}},
 	{"name": "sd-2.0-480p", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.5"}},
+	{"name": "sd-2.5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "2r"}},
 	{"name": "minimax-h3-f", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.03"}},
 }
 

@@ -66,3 +66,20 @@ func TestMergeMegaBYVideoModelsIsIdempotent(t *testing.T) {
 		t.Fatalf("unexpected models: %#v", extra["models"])
 	}
 }
+
+func TestMegaBYSD25ModelConfig(t *testing.T) {
+	for _, model := range megaBYVideoModels {
+		if model["name"] != "sd-2.5" {
+			continue
+		}
+		if model["channel"] != "MegaBY" || model["protocol"] != "megaby_video" {
+			t.Fatalf("unexpected sd-2.5 routing: %#v", model)
+		}
+		parameters, ok := model["parameters"].(map[string]any)
+		if !ok || parameters["note"] != "2r" {
+			t.Fatalf("unexpected sd-2.5 display note: %#v", model["parameters"])
+		}
+		return
+	}
+	t.Fatal("MegaBY sd-2.5 model is missing")
+}
