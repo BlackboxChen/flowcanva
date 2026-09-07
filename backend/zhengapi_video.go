@@ -105,27 +105,40 @@ func zhengVideoSize(model string) string {
 
 func createZhengVideoTask(c *gin.Context, baseURL, apiKey string, payload map[string]any) (string, error) {
 	body, _ := json.Marshal(payload)
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+"/v1/videos", bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := llmClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	data, err := decodeZhengVideoResponse(resp)
-	if err != nil {
-		return "", err
-	}
-	for _, key := range []string{"id", "task_id"} {
-		if value, _ := data[key].(string); value != "" {
-			return value, nil
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+"/v1/videos", bytes.NewReader(body))
+		if err != nil {
+			return "", err
 		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := llmClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if c.Request.Context().Err() != nil || attempt == 2 {
+				break
+			}
+			select {
+			case <-time.After(time.Duration(attempt+1) * time.Second):
+			case <-c.Request.Context().Done():
+				return "", c.Request.Context().Err()
+			}
+			continue
+		}
+		data, decodeErr := decodeZhengVideoResponse(resp)
+		resp.Body.Close()
+		if decodeErr != nil {
+			return "", decodeErr
+		}
+		for _, key := range []string{"id", "task_id"} {
+			if value, _ := data[key].(string); value != "" {
+				return value, nil
+			}
+		}
+		return "", fmt.Errorf("创建视频任务后未返回 task_id")
 	}
-	return "", fmt.Errorf("创建视频任务后未返回 task_id")
+	return "", lastErr
 }
 
 func pollZhengVideoTask(c *gin.Context, baseURL, apiKey, taskID string) (string, error) {
