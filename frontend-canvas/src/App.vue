@@ -73,6 +73,13 @@ const {
 const { canUndo, canRedo, push: pushHistory, undo, redo } = useHistory(nodes, edges)
 
 const { assets, loadAssets, setCategory: setAssetCategory, removeAsset } = useAssets()
+
+function onCanvasPointerDown(e: PointerEvent) {
+  const target = e.target as HTMLElement
+  const interactive = target.closest('.canvas-node, .pointer-events-auto, button, a, [role="button"], input, select, textarea')
+  if (!interactive) selectNode(null)
+  onPointerDown(e)
+}
 // 进入画布即预加载资产,避免资产节点 picker 首次打开显示"暂无资产"(之前只有打开资产库面板才触发加载)
 loadAssets()
 
@@ -503,7 +510,7 @@ async function handleSavePanel(content: string) {
   <div
     class="w-screen h-screen overflow-hidden bg-base-100"
     @wheel="onWheel"
-    @pointerdown="onPointerDown"
+    @pointerdown="onCanvasPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
   >
