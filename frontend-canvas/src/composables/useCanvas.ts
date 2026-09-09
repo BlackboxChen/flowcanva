@@ -75,15 +75,11 @@ export function useCanvas() {
 
   function onWheel(e: WheelEvent) {
     e.preventDefault()
-    if (e.ctrlKey || e.metaKey) {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-      const px = e.clientX - rect.left
-      const py = e.clientY - rect.top
-      zoomAt(px, py, e.deltaY < 0 ? 1.08 : 0.93)
-    } else {
-      viewport.ox -= e.deltaX
-      viewport.oy -= e.deltaY
-    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const px = e.clientX - rect.left
+    const py = e.clientY - rect.top
+    // 普通滚轮直接缩放画布，以鼠标位置为缩放中心。
+    zoomAt(px, py, e.deltaY < 0 ? 1.08 : 0.93)
   }
 
   function onPointerDown(e: PointerEvent) {
