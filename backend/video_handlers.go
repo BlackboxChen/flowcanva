@@ -167,7 +167,7 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 
 	// 轮询
 	pollURL := baseURL + "/v1/video/generations/" + taskID
-	maxWait := 600 * time.Second
+	maxWait := 30 * time.Minute
 	pollInterval := 5 * time.Second
 	deadline := time.Now().Add(maxWait)
 

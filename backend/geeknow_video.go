@@ -76,7 +76,7 @@ func pollGeekNowVideoTask(c *gin.Context, baseURL, apiKey, taskID string) (strin
 	if !strings.HasSuffix(strings.ToLower(base), "/v1") {
 		base += "/v1"
 	}
-	for deadline := time.Now().Add(10 * time.Minute); time.Now().Before(deadline); {
+	for deadline := time.Now().Add(30 * time.Minute); time.Now().Before(deadline); {
 		select {
 		case <-c.Request.Context().Done():
 			return "", c.Request.Context().Err()

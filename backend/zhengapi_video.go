@@ -13,7 +13,7 @@ import (
 )
 
 var zhengVideoPollInterval = 6 * time.Second
-var zhengVideoMaxWait = 10 * time.Minute
+var zhengVideoMaxWait = 30 * time.Minute
 
 func isZhengAPISDModel(model string) bool {
 	if model == "sd-2.0-sec-480p" {
