@@ -107,6 +107,7 @@ const { canUndo, canRedo, push: pushHistory, undo, redo } = useHistory(nodes, ed
 const { assets, loadAssets, setCategory: setAssetCategory, removeAsset } = useAssets()
 
 let copiedNode: CanvasNode | null = null
+let copiedNodeContent = ''
 let copiedIncomingSources: string[] = []
 
 function onCanvasPointerDown(e: PointerEvent) {
@@ -166,6 +167,8 @@ function onKeydown(e: KeyboardEvent) {
     const source = nodes.value.find(node => node.id === selectedNodeId.value)
     if (source) {
       copiedNode = { ...source }
+      // 单独保存内容快照，确保复制后源节点继续编辑不会影响待粘贴内容。
+      copiedNodeContent = source.content
       copiedIncomingSources = edges.value
         .filter(edge => edge.target_node_id === source.id)
         .map(edge => edge.source_node_id)
@@ -568,7 +571,7 @@ async function pasteCopiedNode() {
   if (!clone) return
 
   await resizeNode(clone.id, source.width, source.height, source.x + offset, source.y + offset)
-  await updateNodeContent(clone.id, source.content)
+  await updateNodeContent(clone.id, copiedNodeContent || source.content)
   await updateNodeConfig(clone.id, source.config)
 
   // 只复制上游入边，让参考图/音频/视频继续指向新节点。
