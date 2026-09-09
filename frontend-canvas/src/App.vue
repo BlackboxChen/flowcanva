@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import InfiniteCanvas from './components/InfiniteCanvas.vue'
 import LeftToolbar from './components/LeftToolbar.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
@@ -40,6 +40,7 @@ const {
   onPointerMove,
   onPointerUp,
   resetView,
+  restoreViewport,
   zoomIn,
   zoomOut,
   navigateTo,
@@ -61,6 +62,36 @@ const {
   removeNode,
   selectNode,
 } = useNodes()
+
+const VIEWPORT_STORAGE_PREFIX = 'flowcanva:viewport:'
+const viewportReady = ref(false)
+
+function viewportStorageKey(id: string) {
+  return `${VIEWPORT_STORAGE_PREFIX}${id}`
+}
+
+function restoreSavedViewport(id: string) {
+  try {
+    const raw = localStorage.getItem(viewportStorageKey(id))
+    if (!raw) return
+    const saved = JSON.parse(raw)
+    restoreViewport(saved)
+  } catch {
+    // 忽略损坏的本地视图数据，使用默认视图。
+  }
+}
+
+watch(
+  () => [viewport.ox, viewport.oy, viewport.zoom, canvasId.value] as const,
+  ([ox, oy, zoom, id]) => {
+    if (!viewportReady.value || !id) return
+    try {
+      localStorage.setItem(viewportStorageKey(id), JSON.stringify({ ox, oy, zoom }))
+    } catch {
+      // 本地存储不可用时不影响画布操作。
+    }
+  },
+)
 
 const {
   edges,
@@ -293,6 +324,8 @@ onMounted(async () => {
   const cid = getCanvasIdFromURL()
   const loadedEdges = await loadOrCreateCanvas(cid)
   if (canvasId.value) {
+    restoreSavedViewport(canvasId.value)
+    viewportReady.value = true
     edgesCanvasId.value = canvasId.value
     if (loadedEdges) {
       edges.value = loadedEdges

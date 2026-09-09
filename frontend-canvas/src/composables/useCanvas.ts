@@ -114,6 +114,12 @@ export function useCanvas() {
     viewport.zoom = 1
   }
 
+  function restoreViewport(state: Partial<ViewportState>) {
+    if (Number.isFinite(state.ox)) viewport.ox = state.ox as number
+    if (Number.isFinite(state.oy)) viewport.oy = state.oy as number
+    if (Number.isFinite(state.zoom)) viewport.zoom = clamp(state.zoom as number, MIN_ZOOM, MAX_ZOOM)
+  }
+
   function zoomIn() {
     const cx = window.innerWidth / 2
     const cy = window.innerHeight / 2
@@ -142,6 +148,7 @@ export function useCanvas() {
     onPointerMove,
     onPointerUp,
     resetView,
+    restoreViewport,
     zoomIn,
     zoomOut,
     zoomAt,
