@@ -612,11 +612,11 @@ watch(modalOpen, async (v) => {
 
       <div ref="editableRef" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
 
-      <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-white/10">
-        <div class="flex items-center gap-1">
+      <div class="flex items-center justify-between gap-1 mt-3 pt-3 border-t border-white/10">
+        <div class="flex items-center gap-0.5 min-w-0">
           <span class="text-[10px] text-white/30 ml-1">模型</span>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-[96px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-[180px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ m }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
