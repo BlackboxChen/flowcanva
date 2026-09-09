@@ -625,7 +625,7 @@ watch(modalOpen, async (v) => {
         <button class="shrink-0 rounded border border-white/20 px-2 py-1 text-white/70 hover:bg-white/10" @click="recoverFromFile">导入图片</button>
       </div>
 
-      <div ref="editableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
+      <div ref="editableRef" contenteditable="true" class="prompt-editor w-full h-[200px] min-h-[200px] max-h-[200px] bg-transparent outline-0 text-white text-sm leading-5 px-1 overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
 
       <div class="flex items-center justify-between gap-1 mt-3 pt-3 border-t border-white/10">
         <div class="flex items-center gap-0.5 min-w-0">
@@ -691,7 +691,7 @@ watch(modalOpen, async (v) => {
             <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
               <MentionDropdown placement="inline" :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
             </div>
-            <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
+            <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full h-[200px] min-h-[200px] max-h-[200px] bg-transparent outline-0 text-white text-sm leading-5 overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
           </div>
           <div v-if="allDisplayImages.length > 0" class="flex flex-wrap gap-2">
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">
