@@ -482,7 +482,7 @@ watch(modalOpen, async (v) => {
         </button>
       </div>
 
-      <div v-if="showMention" class="relative">
+      <div v-if="showMention && mentionAnchor === 'inline'" class="relative">
         <MentionDropdown :connected-images="images" :filter="mentionFilter" @insert="insertMention" />
       </div>
 
@@ -566,7 +566,12 @@ watch(modalOpen, async (v) => {
               <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ `文件${i+1}` }}</span>
             </div>
           </div>
-          <div ref="modalEditableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
+          <div class="relative">
+            <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
+              <MentionDropdown :connected-images="images" :filter="mentionFilter" @insert="insertMention" />
+            </div>
+            <div ref="modalEditableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
+          </div>
         </div>
         <div class="flex items-center justify-between gap-2 px-4 py-3 border-t border-white/10">
           <div class="flex items-center gap-1 flex-wrap">

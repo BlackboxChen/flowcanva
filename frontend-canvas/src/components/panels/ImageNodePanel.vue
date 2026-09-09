@@ -63,6 +63,7 @@ const modalContentEditable = ref<HTMLDivElement | null>(null)
 const showMention = ref(false)
 const mentionFilter = ref('')
 const mentionAnchor = ref<'inline' | 'modal'>('inline')
+const mentionRange = ref<Range | null>(null)
 
 interface DisplayImage {
   id: number | string
@@ -362,13 +363,25 @@ function handleMention(anchor: 'inline' | 'modal') {
   const cursorPos = range.startOffset
   const before = text.slice(0, cursorPos)
   const m = before.match(/@([^\s@]*)$/)
-  if (m) { mentionFilter.value = m[1]; showMention.value = true; mentionAnchor.value = anchor }
-  else { showMention.value = false }
+  if (m) {
+    mentionFilter.value = m[1]
+    mentionAnchor.value = anchor
+    mentionRange.value = range.cloneRange()
+    showMention.value = true
+  } else {
+    showMention.value = false
+    mentionRange.value = null
+  }
 }
 
 function insertMention(img: { id: any; name: string; displayName?: string; src: string; mediaType?: 'image' | 'video' | 'audio' }) {
   const el = mentionAnchor.value === 'modal' ? modalContentEditable.value : editableRef.value; if (!el) return
-  const sel = window.getSelection(); if (!sel?.rangeCount) return
+  const sel = window.getSelection(); if (!sel) return
+  if (mentionRange.value) {
+    sel.removeAllRanges()
+    sel.addRange(mentionRange.value)
+  }
+  if (!sel.rangeCount) return
   const range = sel.getRangeAt(0); const node = range.startContainer
   if (node.nodeType !== Node.TEXT_NODE) return
   const text = node.textContent || ''; const pos = range.startOffset
@@ -393,7 +406,9 @@ function insertMention(img: { id: any; name: string; displayName?: string; src: 
   const space = document.createTextNode(' ')
   range.insertNode(space); range.insertNode(chip)
   sel.removeAllRanges(); range.setStartAfter(space); range.collapse(true); sel.addRange(range)
-  showMention.value = false; syncPrompt(mentionAnchor.value)
+  showMention.value = false
+  mentionRange.value = null
+  syncPrompt(mentionAnchor.value)
 }
 
 function promptForRequest(): string {
@@ -600,7 +615,7 @@ watch(modalOpen, async (v) => {
         </button>
       </div>
 
-      <div v-if="showMention" class="relative">
+      <div v-if="showMention && mentionAnchor === 'inline'" class="relative">
         <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
       </div>
 
@@ -672,7 +687,12 @@ watch(modalOpen, async (v) => {
         </div>
         <div class="flex-1 overflow-y-auto p-5 space-y-3">
           <div v-if="errorMessage" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 break-words">{{ errorMessage }}</div>
-          <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
+          <div class="relative">
+            <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
+              <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
+            </div>
+            <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
+          </div>
           <div v-if="allDisplayImages.length > 0" class="flex flex-wrap gap-2">
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">
               <img :src="img.url" class="w-full h-full object-cover" />
