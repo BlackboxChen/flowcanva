@@ -568,7 +568,7 @@ watch(modalOpen, async (v) => {
           </div>
           <div class="relative">
             <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
-              <MentionDropdown :connected-images="images" :filter="mentionFilter" @insert="insertMention" />
+              <MentionDropdown placement="inline" :connected-images="images" :filter="mentionFilter" @insert="insertMention" />
             </div>
             <div ref="modalEditableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
           </div>

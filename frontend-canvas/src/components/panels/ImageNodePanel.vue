@@ -689,7 +689,7 @@ watch(modalOpen, async (v) => {
           <div v-if="errorMessage" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 break-words">{{ errorMessage }}</div>
           <div class="relative">
             <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
-              <MentionDropdown :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
+              <MentionDropdown placement="inline" :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
             </div>
             <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
           </div>

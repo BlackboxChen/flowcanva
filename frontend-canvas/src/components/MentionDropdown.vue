@@ -13,6 +13,7 @@ interface MentionImage {
 const props = defineProps<{
   connectedImages: { id: number | string; name: string; displayName?: string; dataUrl: string; mediaType?: 'image' | 'video' | 'audio' }[]
   filter: string
+  placement?: 'above' | 'inline'
 }>()
 
 const emit = defineEmits<{
@@ -76,7 +77,9 @@ function assetMediaType(url: string): 'image' | 'video' | 'audio' {
 </script>
 
 <template>
-  <div class="absolute bottom-full left-0 z-[1000] mb-1 min-w-[240px] max-h-[360px] flex flex-col rounded-lg border border-white/15 bg-neutral-800 py-1 shadow-xl">
+  <div :class="props.placement === 'inline'
+    ? 'relative z-[1000] min-w-[240px] max-h-[360px] flex flex-col rounded-lg border border-white/15 bg-neutral-800 py-1 shadow-xl'
+    : 'absolute bottom-full left-0 z-[1000] mb-1 min-w-[240px] max-h-[360px] flex flex-col rounded-lg border border-white/15 bg-neutral-800 py-1 shadow-xl'">
     <!-- 已连节点（固定高度） -->
     <div class="shrink-0">
       <div class="px-2 pt-1 pb-0.5 text-[10px] text-white/40 uppercase tracking-wide">已连节点</div>
