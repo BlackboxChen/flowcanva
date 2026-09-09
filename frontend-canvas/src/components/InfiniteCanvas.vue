@@ -86,6 +86,8 @@ const CONTENT_MARGIN = 8
 // 面板贴合选中节点底部（世界坐标）
 const PANEL_GAP = 12
 const PANEL_EXTRA_W = 160
+// 生成任务面板是阅读和编辑提示词的固定工具栏，不跟随节点宽度或画布缩放变化。
+const TASK_PANEL_WIDTH = 760
 const panelZIndex = computed(() => {
   const highestNodeZ = Math.max(0, ...Object.values(props.nodeZIndices))
   return String(highestNodeZ + 1000)
@@ -115,13 +117,16 @@ function taskPanelStyle(node: Node): Record<string, string> {
   if (node.id !== props.selectedNodeId || dragOffsets[node.id] || resizeOffsets[node.id]) {
     return { display: 'none' }
   }
-  const pw = Math.max(node.width + PANEL_EXTRA_W, 320)
+  const zoom = Math.max(props.viewport.zoom, 0.001)
   return {
     display: '',
     position: 'absolute',
-    left: `${node.x - PANEL_EXTRA_W / 2}px`,
-    top: `${node.y + node.height + PANEL_GAP}px`,
-    width: `${pw}px`,
+    left: `${node.x + node.width / 2 - TASK_PANEL_WIDTH / 2}px`,
+    // 间距也换算到世界坐标，保持屏幕上的视觉间距不随缩放改变。
+    top: `${node.y + node.height + PANEL_GAP / zoom}px`,
+    width: `${TASK_PANEL_WIDTH}px`,
+    transform: `scale(${1 / zoom})`,
+    transformOrigin: 'top left',
     zIndex: panelZIndex.value,
   }
 }
