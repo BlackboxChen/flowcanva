@@ -610,7 +610,7 @@ watch(modalOpen, async (v) => {
         <button class="shrink-0 rounded border border-white/20 px-2 py-1 text-white/70 hover:bg-white/10" @click="recoverFromFile">导入图片</button>
       </div>
 
-      <div ref="editableRef" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
+      <div ref="editableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onInput" />
 
       <div class="flex items-center justify-between gap-1 mt-3 pt-3 border-t border-white/10">
         <div class="flex items-center gap-0.5 min-w-0">
@@ -672,7 +672,7 @@ watch(modalOpen, async (v) => {
         </div>
         <div class="flex-1 overflow-y-auto p-5 space-y-3">
           <div v-if="errorMessage" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 break-words">{{ errorMessage }}</div>
-          <div ref="modalContentEditable" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
+          <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
           <div v-if="allDisplayImages.length > 0" class="flex flex-wrap gap-2">
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">
               <img :src="img.url" class="w-full h-full object-cover" />

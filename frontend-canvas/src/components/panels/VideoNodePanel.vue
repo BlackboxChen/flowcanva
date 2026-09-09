@@ -486,7 +486,7 @@ watch(modalOpen, async (v) => {
         <MentionDropdown :connected-images="images" :filter="mentionFilter" @insert="insertMention" />
       </div>
 
-      <div ref="editableRef" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onInput" />
+      <div ref="editableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm px-1 min-h-[60px] max-h-[100px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onInput" />
 
       <div class="flex items-center justify-between gap-1 mt-3 pt-3 border-t border-white/10">
         <div class="flex items-center gap-0.5 min-w-0">
@@ -566,7 +566,7 @@ watch(modalOpen, async (v) => {
               <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ `文件${i+1}` }}</span>
             </div>
           </div>
-          <div ref="modalEditableRef" contenteditable="true" class="w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
+          <div ref="modalEditableRef" contenteditable="true" class="prompt-editor w-full bg-transparent outline-0 text-white text-sm min-h-[120px] overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
         </div>
         <div class="flex items-center justify-between gap-2 px-4 py-3 border-t border-white/10">
           <div class="flex items-center gap-1 flex-wrap">

@@ -47,3 +47,16 @@
     color: rgba(255, 255, 255, 0.5);
   }
 }
+
+/* 提示词编辑器中的普通文字保持白色，图片引用芯片单独使用蓝色。 */
+.prompt-editor {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.prompt-editor :not([data-mention]):not([data-mention] *) {
+  color: inherit !important;
+}
+
+.prompt-editor [data-mention] .text-blue-400 {
+  color: #60a5fa !important;
+}
