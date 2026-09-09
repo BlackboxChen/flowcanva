@@ -72,6 +72,18 @@ watch(() => images.value.length, () => {
 const previewImg = ref<UploadImage | null>(null)
 const modalOpen = ref(false)
 
+function mediaLabel(mediaType: UploadImage['mediaType'], index: number): string {
+  const prefix = mediaType === 'audio' ? '音频' : mediaType === 'video' ? '视频' : '图片'
+  return `${prefix}${index + 1}`
+}
+
+function normalizeMediaNames() {
+  const counters: Record<UploadImage['mediaType'], number> = { image: 0, audio: 0, video: 0 }
+  for (const image of images.value) {
+    image.name = mediaLabel(image.mediaType, counters[image.mediaType]++)
+  }
+}
+
 const editableRef = ref<HTMLDivElement | null>(null)
 const modalEditableRef = ref<HTMLDivElement | null>(null)
 const showMention = ref(false)
@@ -155,7 +167,7 @@ watch(() => props.nodeInputs, (inputs) => {
           connectedImages.value.set(inp.edgeId, img)
           images.value.push(img)
           images.value.sort((a, b) => a.id - b.id)
-          images.value.forEach((img, i) => { img.name = `图片${i + 1}` })
+          normalizeMediaNames()
         }
         if (mediaType === 'image') compressImage(sourceUrl).then(add)
         else add(sourceUrl)
@@ -229,6 +241,7 @@ watch(() => props.node, (n) => {
       const isConnected = [...connectedImages.value.values()].some(ci => ci.id === i.id)
       return isConnected ? connIds.has(i.id) : true
     })
+    normalizeMediaNames()
     updateModeByImages()
     nextTick(() => {
       if (editableRef.value) {
@@ -312,7 +325,7 @@ function onAddMedia() {
           compressImage(reader.result as string).then(compressed => {
             images.value.push({ id: imageCounter, name, dataUrl: compressed, mediaType })
             images.value.sort((a, b) => a.id - b.id)
-            images.value.forEach((img, i) => { img.name = `文件${i + 1}` })
+            normalizeMediaNames()
           })
         }
         reader.readAsDataURL(file)
@@ -320,7 +333,7 @@ function onAddMedia() {
         reader.onload = () => {
           images.value.push({ id: imageCounter, name, dataUrl: reader.result as string, mediaType })
           images.value.sort((a, b) => a.id - b.id)
-          images.value.forEach((img, i) => { img.name = `文件${i + 1}` })
+          normalizeMediaNames()
         }
         reader.readAsDataURL(file)
       }
@@ -473,7 +486,7 @@ watch(modalOpen, async (v) => {
             <svg v-if="img.mediaType === 'video'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </div>
-          <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ `文件${i+1}` }}</span>
+          <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.name }}</span>
           <button class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" @click.stop="removeImage(img)">×</button>
         </div>
         <button class="shrink-0 w-10 h-10 rounded-lg border border-white/15 flex flex-col items-center justify-center text-white/40 hover:text-white/60 hover:border-white/25 transition-colors gap-0.5" @click="onAddMedia">
@@ -563,7 +576,7 @@ watch(modalOpen, async (v) => {
                 <svg v-if="img.mediaType === 'video'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               </div>
-              <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ `文件${i+1}` }}</span>
+              <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ img.name }}</span>
             </div>
           </div>
           <div class="relative">

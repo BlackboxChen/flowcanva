@@ -82,6 +82,11 @@ function deriveDisplayName(text: string): string {
   return firstLine.length > 32 ? `${firstLine.slice(0, 32)}…` : firstLine
 }
 
+function mediaLabel(mediaType: DisplayImage['mediaType'], index: number): string {
+  const prefix = mediaType === 'audio' ? '音频' : mediaType === 'video' ? '视频' : '图片'
+  return `${prefix}${index + 1}`
+}
+
 watch(ratioOptions, (options) => {
   if (!options.includes(selectedRatio.value)) selectedRatio.value = options[0]
 })
@@ -94,12 +99,19 @@ watch(resolutionOptions, (options) => {
 
 function rebuildDisplay() {
   const list: DisplayImage[] = []
+  const counters: Record<string, number> = {}
   for (const [, img] of connectedImages.value) {
-    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: img.displayName || img.name, isRef: true, mediaType: img.mediaType })
+    const mediaType = img.mediaType || 'image'
+    const index = counters[mediaType] || 0
+    counters[mediaType] = index + 1
+    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: mediaLabel(mediaType, index), isRef: true, mediaType })
   }
   for (const img of images.value) {
     const label = img.name || '上传'
-    list.push({ id: img.id, url: img.url, label, displayLabel: label, isRef: false, mediaType: img.mediaType })
+    const mediaType = img.mediaType || 'image'
+    const index = counters[mediaType] || 0
+    counters[mediaType] = index + 1
+    list.push({ id: img.id, url: img.url, label, displayLabel: mediaLabel(mediaType, index), isRef: false, mediaType })
   }
   allDisplayImages.value = list
   nextTick(refreshMentionThumbnails)
@@ -399,7 +411,8 @@ function insertMention(img: { id: any; name: string; displayName?: string; src: 
   thumbnail.className = 'inline w-4 h-4 rounded object-cover'
   const label = document.createElement('span')
   label.className = 'text-blue-400'
-  label.textContent = `@${img.displayName || img.name}`
+  const display = allDisplayImages.value.find(item => String(item.id) === String(img.id) || item.url === img.src)
+  label.textContent = `@${display?.displayLabel || mediaLabel(img.mediaType, allDisplayImages.value.filter(item => item.mediaType === (img.mediaType || 'image')).length)}`
   chip.append(thumbnail, label)
   chip.setAttribute('data-mention-id', String(img.id))
   chip.setAttribute('data-mention', img.name)
