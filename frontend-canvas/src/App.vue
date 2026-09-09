@@ -59,6 +59,7 @@ const {
   moveNode,
   resizeNode,
   updateNodeContent,
+  updateNodeConfig,
   removeNode,
   selectNode,
 } = useNodes()
@@ -104,6 +105,9 @@ const {
 const { canUndo, canRedo, push: pushHistory, undo, redo } = useHistory(nodes, edges)
 
 const { assets, loadAssets, setCategory: setAssetCategory, removeAsset } = useAssets()
+
+let copiedNode: CanvasNode | null = null
+let copiedIncomingSources: string[] = []
 
 function onCanvasPointerDown(e: PointerEvent) {
   const target = e.target as HTMLElement
@@ -156,6 +160,24 @@ function cancelEditName() {
 
 // Keyboard shortcuts
 function onKeydown(e: KeyboardEvent) {
+  const isModifier = e.ctrlKey || e.metaKey
+  const editingTarget = (e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')
+  if (isModifier && !editingTarget && e.key.toLowerCase() === 'c' && selectedNodeId.value) {
+    const source = nodes.value.find(node => node.id === selectedNodeId.value)
+    if (source) {
+      copiedNode = { ...source }
+      copiedIncomingSources = edges.value
+        .filter(edge => edge.target_node_id === source.id)
+        .map(edge => edge.source_node_id)
+      e.preventDefault()
+    }
+    return
+  }
+  if (isModifier && !editingTarget && e.key.toLowerCase() === 'v' && copiedNode) {
+    e.preventDefault()
+    void pasteCopiedNode()
+    return
+  }
   // Alt+Shift+F 整理画布
   if (e.altKey && e.shiftKey && e.key === 'F') {
     e.preventDefault()
@@ -530,6 +552,30 @@ async function handleSavePanelForNode(nodeId: string, content: string) {
 
   if (node.node_type === 'asset' && !content) {
     edges.value = edges.value.filter(e => e.source_node_id !== nodeId)
+  }
+}
+
+async function pasteCopiedNode() {
+  const source = copiedNode
+  if (!source) return
+  pushHistory()
+  const offset = 40
+  const clone = await addNode(
+    source.node_type,
+    source.x + offset + source.width / 2,
+    source.y + offset + source.height / 2,
+  )
+  if (!clone) return
+
+  await resizeNode(clone.id, source.width, source.height, source.x + offset, source.y + offset)
+  await updateNodeContent(clone.id, source.content)
+  await updateNodeConfig(clone.id, source.config)
+
+  // 只复制上游入边，让参考图/音频/视频继续指向新节点。
+  for (const sourceId of copiedIncomingSources) {
+    if (nodes.value.some(node => node.id === sourceId)) {
+      await addEdge(sourceId, clone.id)
+    }
   }
 }
 

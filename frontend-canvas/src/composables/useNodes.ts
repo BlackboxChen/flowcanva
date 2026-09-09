@@ -107,6 +107,13 @@ export function useNodes() {
     try { await updateNode(canvasId.value, id, { content }) } catch { /* ignore save errors during stream */ }
   }
 
+  async function updateNodeConfig(id: string, config: string) {
+    const node = nodes.value.find(n => n.id === id)
+    if (node) node.config = config
+    if (!canvasId.value) return
+    await updateNode(canvasId.value, id, { config })
+  }
+
   async function removeNode(id: string) {
     if (!canvasId.value) return
     await deleteNode(canvasId.value, id)
@@ -134,6 +141,7 @@ export function useNodes() {
     moveNode,
     resizeNode,
     updateNodeContent,
+    updateNodeConfig,
     removeNode,
     selectNode,
   }
