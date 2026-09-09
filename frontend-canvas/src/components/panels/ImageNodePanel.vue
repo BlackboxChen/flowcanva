@@ -616,35 +616,35 @@ watch(modalOpen, async (v) => {
         <div class="flex items-center gap-0.5 min-w-0">
           <span class="text-[10px] text-white/30 ml-1">模型</span>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-[180px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-max min-w-[180px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ m }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <span class="text-[10px] text-white/30">比例</span>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedRatio" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-[42px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedRatio" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-max min-w-[52px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="r in ratioOptions" :key="r" :value="r" class="bg-neutral-900 text-white">{{ r }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <span class="text-[10px] text-white/30">像素</span>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedResolution" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-[36px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedResolution" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-max min-w-[44px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="r in resolutionOptions" :key="r" :value="r" class="bg-neutral-900 text-white">{{ r }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <span class="text-[10px] text-white/30">数量</span>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedCount" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-[36px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedCount" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-max min-w-[40px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="c in countOptions" :key="c" :value="c" class="bg-neutral-900 text-white">{{ c }}x</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <span class="text-[10px] text-white/30">预设</span>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedPreset" @change="applyPreset" class="text-xs bg-transparent border-0 text-white/50 hover:text-white h-6 py-0 pl-0 pr-6 w-[56px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedPreset" @change="applyPreset" class="text-xs bg-transparent border-0 text-white/50 hover:text-white h-6 py-0 pl-0 pr-6 w-max min-w-[56px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option value="" class="bg-neutral-900 text-white/40">预设</option>
               <optgroup v-for="cat in presetCategories" :key="cat" :label="cat">
                 <option v-for="pr in presets.filter(p => p.category === cat)" :key="pr.id" :value="pr.id" class="bg-neutral-900 text-white">{{ pr.name }}</option>

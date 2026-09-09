@@ -491,31 +491,31 @@ watch(modalOpen, async (v) => {
       <div class="flex items-center justify-between gap-1 mt-3 pt-3 border-t border-white/10">
         <div class="flex items-center gap-0.5 min-w-0">
           <div class="relative inline-flex items-center">
-            <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-[180px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedModel" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-6 w-max min-w-[180px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="m in models" :key="m" :value="m" class="bg-neutral-900 text-white">{{ modelLabel(m) }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedRatio" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-[38px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedRatio" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-max min-w-[52px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="r in ratioOptions" :key="r" :value="r" class="bg-neutral-900 text-white">{{ r }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedResolution" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-[48px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedResolution" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-max min-w-[56px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="r in resolutionOptions" :key="r" :value="r" class="bg-neutral-900 text-white">{{ r }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedDuration" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-[38px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedDuration" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-5 w-max min-w-[48px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="d in durationOptions" :key="d" :value="d" class="bg-neutral-900 text-white">{{ d }}s</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="relative inline-flex items-center">
-            <select v-model="selectedCount" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-4 w-[28px] outline-none appearance-none cursor-pointer [color-scheme:dark]">
+            <select v-model="selectedCount" class="text-xs bg-transparent border-0 text-white/70 hover:text-white h-6 py-0 pl-0 pr-4 w-max min-w-[36px] shrink-0 outline-none appearance-none cursor-pointer [color-scheme:dark]">
               <option v-for="c in countOptions" :key="c" :value="c" class="bg-neutral-900 text-white">{{ c }}</option>
             </select>
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
