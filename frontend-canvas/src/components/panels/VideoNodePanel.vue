@@ -84,6 +84,46 @@ function normalizeMediaNames() {
   }
 }
 
+function createMentionChip(reference: UploadImage): HTMLElement {
+  const chip = document.createElement('span')
+  chip.className = 'inline-flex items-center gap-0.5 align-middle'
+  chip.contentEditable = 'false'
+  chip.innerHTML = `<img src="${reference.dataUrl}" class="inline w-4 h-4 rounded object-cover" /><span class="text-blue-400">@${reference.name}</span>`
+  chip.setAttribute('data-mention', reference.name)
+  return chip
+}
+
+function convertTextMentions(editor: HTMLElement | null) {
+  if (!editor || images.value.length === 0) return
+  const references = new Map(images.value.map(image => [image.name, image]))
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+  const textNodes: Text[] = []
+  let current: globalThis.Node | null
+  while ((current = walker.nextNode())) {
+    if (!current.parentElement?.closest('[data-mention]')) textNodes.push(current as Text)
+  }
+  for (const textNode of textNodes) {
+    const text = textNode.nodeValue || ''
+    const pattern = /@(图片|音频|视频)\d+/g
+    let match: RegExpExecArray | null
+    let last = 0
+    const fragment = document.createDocumentFragment()
+    let changed = false
+    while ((match = pattern.exec(text))) {
+      const reference = references.get(match[0].slice(1))
+      if (!reference) continue
+      if (match.index > last) fragment.append(document.createTextNode(text.slice(last, match.index)))
+      fragment.append(createMentionChip(reference))
+      last = match.index + match[0].length
+      changed = true
+    }
+    if (!changed) continue
+    if (last < text.length) fragment.append(document.createTextNode(text.slice(last)))
+    textNode.parentNode?.replaceChild(fragment, textNode)
+  }
+  if (editor === editableRef.value) syncPrompt()
+}
+
 const editableRef = ref<HTMLDivElement | null>(null)
 const modalEditableRef = ref<HTMLDivElement | null>(null)
 const showMention = ref(false)
@@ -168,6 +208,10 @@ watch(() => props.nodeInputs, (inputs) => {
           images.value.push(img)
           images.value.sort((a, b) => a.id - b.id)
           normalizeMediaNames()
+          nextTick(() => {
+            convertTextMentions(editableRef.value)
+            convertTextMentions(modalEditableRef.value)
+          })
         }
         if (mediaType === 'image') compressImage(sourceUrl).then(add)
         else add(sourceUrl)
@@ -181,6 +225,10 @@ watch(() => props.nodeInputs, (inputs) => {
     }
   }
   updateModeByImages()
+  nextTick(() => {
+    convertTextMentions(editableRef.value)
+    convertTextMentions(modalEditableRef.value)
+  })
 }, { immediate: true, deep: true })
 
 function inferMediaType(url: string): 'image' | 'video' | 'audio' {
@@ -251,7 +299,9 @@ watch(() => props.node, (n) => {
         } else {
           editableRef.value.textContent = prompt.value
         }
+        convertTextMentions(editableRef.value)
       }
+      convertTextMentions(modalEditableRef.value)
     })
   }
 }, { immediate: true })
@@ -351,11 +401,13 @@ function removeImage(img: UploadImage) {
 
 function onInput() {
   syncPrompt()
+  convertTextMentions(editableRef.value)
   handleMention('inline')
 }
 
 function onModalInput() {
   syncPrompt('modal')
+  convertTextMentions(modalEditableRef.value)
   handleMention('modal')
 }
 

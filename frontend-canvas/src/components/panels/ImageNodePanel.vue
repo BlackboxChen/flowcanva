@@ -114,7 +114,61 @@ function rebuildDisplay() {
     list.push({ id: img.id, url: img.url, label, displayLabel: mediaLabel(mediaType, index), isRef: false, mediaType })
   }
   allDisplayImages.value = list
-  nextTick(refreshMentionThumbnails)
+  nextTick(() => {
+    refreshMentionThumbnails()
+    convertTextMentions(editableRef.value)
+    convertTextMentions(modalContentEditable.value)
+  })
+}
+
+function createMentionChip(reference: DisplayImage): HTMLElement {
+  const chip = document.createElement('span')
+  chip.className = 'inline-flex items-center gap-0.5 align-middle'
+  chip.contentEditable = 'false'
+  const thumbnail = document.createElement('img')
+  thumbnail.src = reference.url
+  thumbnail.className = 'inline w-4 h-4 rounded object-cover'
+  const label = document.createElement('span')
+  label.className = 'text-blue-400'
+  label.textContent = `@${reference.displayLabel}`
+  chip.append(thumbnail, label)
+  chip.setAttribute('data-mention-id', String(reference.id))
+  chip.setAttribute('data-mention', reference.label)
+  return chip
+}
+
+function convertTextMentions(editor: HTMLElement | null) {
+  if (!editor || allDisplayImages.value.length === 0) return
+  const references = new Map(allDisplayImages.value.map(reference => [reference.displayLabel, reference]))
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+  const textNodes: Text[] = []
+  let current: globalThis.Node | null
+  while ((current = walker.nextNode())) {
+    if (!(current.parentElement?.closest('[data-mention]'))) textNodes.push(current as Text)
+  }
+  for (const textNode of textNodes) {
+    const text = textNode.nodeValue || ''
+    const pattern = /@(图片|音频|视频)\d+/g
+    let match: RegExpExecArray | null
+    let last = 0
+    const fragment = document.createDocumentFragment()
+    let changed = false
+    while ((match = pattern.exec(text))) {
+      const reference = references.get(match[0].slice(1))
+      if (!reference) continue
+      if (match.index > last) fragment.append(document.createTextNode(text.slice(last, match.index)))
+      fragment.append(createMentionChip(reference))
+      last = match.index + match[0].length
+      changed = true
+    }
+    if (!changed) continue
+    if (last < text.length) fragment.append(document.createTextNode(text.slice(last)))
+    textNode.parentNode?.replaceChild(fragment, textNode)
+  }
+  if (editor === editableRef.value) {
+    promptHtml.value = editor.innerHTML
+    updatePromptPlainText()
+  }
 }
 
 // Mention chips are only a visual representation. Their image URL must follow
@@ -245,7 +299,9 @@ watch(() => props.node, (n) => {
         } else {
           editableRef.value.textContent = prompt.value
         }
+        convertTextMentions(editableRef.value)
       }
+      convertTextMentions(modalContentEditable.value)
     })
     loadPresets()
     nodeInitialized = true
@@ -357,11 +413,13 @@ function applyPreset() {
 
 function onInput() {
   syncPrompt()
+  convertTextMentions(editableRef.value)
   handleMention('inline')
 }
 
 function onModalInput() {
   syncPrompt('modal')
+  convertTextMentions(modalContentEditable.value)
   handleMention('modal')
 }
 
