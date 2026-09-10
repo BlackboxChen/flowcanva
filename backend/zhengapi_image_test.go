@@ -73,3 +73,15 @@ func TestMergeGeekNowImageModelsReplacesZhengAPI(t *testing.T) {
 		t.Fatalf("custom config was not preserved: %s", second)
 	}
 }
+
+func TestGeekNowImageModelsIncludeGPTImage25(t *testing.T) {
+	merged, _, _, err := mergeGeekNowImageModels(`{"models":[]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"gpt-image-2.5-flare", "gpt-image-2.5-sunburst"} {
+		if !strings.Contains(merged, `"name":"`+name+`"`) {
+			t.Fatalf("model %s missing from merged config: %s", name, merged)
+		}
+	}
+}

@@ -18,7 +18,7 @@ var geekNowImageMaxWait = 10 * time.Minute
 
 func isGeekNowImageModel(model string) bool {
 	switch model {
-	case "gpt-image-2", "gpt-image-2-pro", "gpt-image-2-vip", "doubao-seedream-4-0-250828", "doubao-seedream-4-5-251128", "doubao-seedream-5-0-260128", "grok-4-2-image":
+	case "gpt-image-2", "gpt-image-2-pro", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "gpt-image-2-vip", "doubao-seedream-4-0-250828", "doubao-seedream-4-5-251128", "doubao-seedream-5-0-260128", "grok-4-2-image":
 		return true
 	default:
 		return false
@@ -259,7 +259,7 @@ func geekNowImageSize(model, resolution, ratio string) (string, error) {
 
 	var sizes map[string]string
 	switch model {
-	case "gpt-image-2":
+	case "gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst":
 		sizes = standard
 	case "gpt-image-2-pro":
 		if resolution == "4K" {

@@ -179,7 +179,7 @@ flowcanva/
 
 图片节点内置以下 GeekNow 模型：
 
-- GPT Image：`gpt-image-2`、`gpt-image-2-pro`
+- GPT Image：`gpt-image-2`、`gpt-image-2-pro`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`
 - Seedream：`doubao-seedream-4-0-250828`、`doubao-seedream-4-5-251128`、`doubao-seedream-5-0-260128`
 
 后端会按照所选模型、分辨率和宽高比转换成 GeekNow 要求的实际像素尺寸；图生图参考图会转换为 Base64 数组。

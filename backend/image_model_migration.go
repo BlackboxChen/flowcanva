@@ -10,6 +10,8 @@ import (
 var geekNowImageModels = []map[string]any{
 	{"name": "gpt-image-2", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},
 	{"name": "gpt-image-2-pro", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},
+	{"name": "gpt-image-2.5-flare", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},
+	{"name": "gpt-image-2.5-sunburst", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},
 	{"name": "doubao-seedream-4-0-250828", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},
 	{"name": "doubao-seedream-4-5-251128", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},
 	{"name": "doubao-seedream-5-0-260128", "channel": "GeekNow", "base_url": "https://www.geeknow.top/v1", "api_key": "", "protocol": "geeknow", "parameters": map[string]any{"supports_img2img": true}},

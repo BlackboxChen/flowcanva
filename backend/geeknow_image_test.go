@@ -16,6 +16,8 @@ import (
 func TestGeekNowImageSizes(t *testing.T) {
 	tests := []struct{ model, resolution, ratio, want string }{
 		{"gpt-image-2", "1K", "16:9", "1920x1080"},
+		{"gpt-image-2.5-flare", "1K", "16:9", "1920x1080"},
+		{"gpt-image-2.5-sunburst", "1K", "1:1", "1024x1024"},
 		{"gpt-image-2-pro", "2K", "3:2", "2560x1712"},
 		{"gpt-image-2-pro", "4K", "9:16", "2160x3840"},
 		{"gpt-image-2-vip", "1K", "21:9", "1344x576"},

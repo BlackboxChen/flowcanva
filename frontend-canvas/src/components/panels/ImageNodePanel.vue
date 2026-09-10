@@ -40,7 +40,7 @@ const selectedPreset = ref('')
 const defaultRatioOptions = ['自适应', '1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '5:4', '4:5', '21:9']
 const ratioOptions = computed(() => {
   const model = selectedModel.value
-  if (model === 'gpt-image-2' || model === 'gpt-image-2-pro') return ['1:1', '4:3', '3:2', '2:3', '16:9', '9:16']
+  if (model === 'gpt-image-2' || model === 'gpt-image-2-pro' || model === 'gpt-image-2.5-flare' || model === 'gpt-image-2.5-sunburst') return ['1:1', '4:3', '3:2', '2:3', '16:9', '9:16']
   if (model === 'gpt-image-2-vip' || model.startsWith('doubao-seedream-') || model === 'grok-4-2-image') return ['1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '21:9']
   if (model.startsWith('firefly-gpt-image')) return ['自适应', '1:1', '16:9', '9:16', '21:9', '4:3', '3:2', '2:3', '5:4', '4:5', '3:4']
   if (model.startsWith('firefly-nano-banana2')) return ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '3:2', '2:3', '5:4', '4:5', '8:1', '1:4', '1:8']
@@ -48,7 +48,7 @@ const ratioOptions = computed(() => {
   return defaultRatioOptions
 })
 const resolutionOptions = computed(() => {
-  if (selectedModel.value === 'gpt-image-2') return ['1K']
+  if (selectedModel.value === 'gpt-image-2' || selectedModel.value === 'gpt-image-2.5-flare' || selectedModel.value === 'gpt-image-2.5-sunburst') return ['1K']
   if (selectedModel.value === 'gpt-image-2-pro') return ['2K', '4K']
   if (selectedModel.value.startsWith('doubao-seedream-') || selectedModel.value === 'grok-4-2-image') return ['2K']
   return ['1K', '2K', '4K']
