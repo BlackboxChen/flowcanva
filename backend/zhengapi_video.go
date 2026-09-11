@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +71,10 @@ func buildZhengVideoPayload(req VideoGenRequest) (map[string]any, error) {
 	if len(imageURLs) > 9 || len(req.VideoURLs) > 3 || len(req.AudioURLs) > 3 {
 		return nil, fmt.Errorf("参考素材超限：图片最多 9 个，视频最多 3 个，音频最多 3 个")
 	}
+	seconds, err := zhengVideoSeconds(req.Model, req.Seconds)
+	if err != nil {
+		return nil, err
+	}
 	media := make([]map[string]string, 0, len(imageURLs)+len(req.VideoURLs)+len(req.AudioURLs))
 	for _, url := range imageURLs {
 		media = append(media, map[string]string{"type": "reference_image", "url": url})
@@ -86,8 +91,22 @@ func buildZhengVideoPayload(req VideoGenRequest) (map[string]any, error) {
 	}
 	return map[string]any{
 		"model": req.Model, "prompt": req.Prompt, "input": input,
-		"seconds": "15", "size": zhengVideoSize(req.Model),
+		"seconds": seconds, "size": zhengVideoSize(req.Model),
 	}, nil
+}
+
+func zhengVideoSeconds(model, requested string) (string, error) {
+	if model != "sd-2.0-sec-480p" {
+		return "15", nil
+	}
+	if requested == "" {
+		return "15", nil
+	}
+	seconds, err := strconv.Atoi(requested)
+	if err != nil || seconds < 4 || seconds > 15 {
+		return "", fmt.Errorf("sd-2.0-sec-480p 时长必须为 4-15 秒")
+	}
+	return strconv.Itoa(seconds), nil
 }
 
 func zhengVideoSize(model string) string {

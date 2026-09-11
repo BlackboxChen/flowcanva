@@ -29,6 +29,19 @@ func TestBuildZhengVideoPayloadPreservesReferenceTypesAndDataURLs(t *testing.T) 
 	}
 }
 
+func TestBuildZhengVideoPayloadUsesSecDuration(t *testing.T) {
+	payload, err := buildZhengVideoPayload(VideoGenRequest{Model: "sd-2.0-sec-480p", Seconds: "8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload["seconds"] != "8" {
+		t.Fatalf("unexpected seconds: %#v", payload["seconds"])
+	}
+	if _, err := buildZhengVideoPayload(VideoGenRequest{Model: "sd-2.0-sec-480p", Seconds: "3"}); err == nil {
+		t.Fatal("expected invalid duration to fail")
+	}
+}
+
 func TestMergeZhengAPIVideoModelsIsIdempotent(t *testing.T) {
 	first, added, err := mergeZhengAPIVideoModels(`{"models":[{"name":"custom-video","channel":"Custom"}]}`)
 	if err != nil || added != len(zhengAPIVideoModels) {
