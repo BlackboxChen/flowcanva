@@ -8,10 +8,12 @@ import (
 	"strings"
 )
 
+const zhengAPIBaseURL = "https://zhengapi.com"
+
 var zhengAPIVideoModels = []map[string]any{
-	{"name": "sd-2.0-15s-16x9-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0-15s-9x16-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
-	{"name": "sd-2.0-sec-480p", "channel": "ZhengAPI", "base_url": "https://zhengapi.top", "protocol": "zhengapi_video", "parameters": map[string]any{}},
+	{"name": "sd-2.0-15s-16x9-480p", "channel": "ZhengAPI", "base_url": zhengAPIBaseURL, "protocol": "zhengapi_video", "parameters": map[string]any{}},
+	{"name": "sd-2.0-15s-9x16-480p", "channel": "ZhengAPI", "base_url": zhengAPIBaseURL, "protocol": "zhengapi_video", "parameters": map[string]any{}},
+	{"name": "sd-2.0-sec-480p", "channel": "ZhengAPI", "base_url": zhengAPIBaseURL, "protocol": "zhengapi_video", "parameters": map[string]any{}},
 }
 
 func ensureZhengAPIVideoModels(db *sql.DB, log *slog.Logger) error {
@@ -23,7 +25,7 @@ func ensureZhengAPIVideoModels(db *sql.DB, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if _, err := db.Exec(`UPDATE node_configs SET model_name='sd-2.0-15s-16x9-480p', api_channel='ZhengAPI', base_url='https://zhengapi.top', api_key='', extra_config=?, updated_at=datetime('now','localtime') WHERE node_type='video'`, merged); err != nil {
+	if _, err := db.Exec(`UPDATE node_configs SET model_name='sd-2.0-15s-16x9-480p', api_channel='ZhengAPI', base_url='`+zhengAPIBaseURL+`', api_key='', extra_config=?, updated_at=datetime('now','localtime') WHERE node_type='video'`, merged); err != nil {
 		return err
 	}
 	log.Info("zhengapi video models registered", "added", added)
@@ -57,7 +59,12 @@ func mergeZhengAPIVideoModels(raw string) (string, int, error) {
 	existing := map[string]bool{}
 	for _, item := range models {
 		if model, ok := item.(map[string]any); ok {
-			if name, _ := model["name"].(string); name != "" {
+			name, _ := model["name"].(string)
+			if model["channel"] == "ZhengAPI" && isZhengAPIVideoPreset(name) {
+				model["base_url"] = zhengAPIBaseURL
+				model["protocol"] = "zhengapi_video"
+			}
+			if name != "" {
 				existing[name] = true
 			}
 		}
@@ -73,6 +80,15 @@ func mergeZhengAPIVideoModels(raw string) (string, int, error) {
 	extra["models"] = models
 	merged, err := json.Marshal(extra)
 	return string(merged), added, err
+}
+
+func isZhengAPIVideoPreset(name string) bool {
+	for _, preset := range zhengAPIVideoModels {
+		if preset["name"] == name {
+			return true
+		}
+	}
+	return false
 }
 
 func containsVideoSuffix(name, suffix string) bool {

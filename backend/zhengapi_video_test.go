@@ -58,6 +58,17 @@ func TestMergeZhengAPIVideoModelsRemovesRetiredPresets(t *testing.T) {
 	}
 }
 
+func TestMergeZhengAPIVideoModelsNormalizesBaseURL(t *testing.T) {
+	raw := `{"models":[{"name":"sd-2.0-sec-480p","channel":"ZhengAPI","base_url":"https://zhengapi.top"}]}`
+	merged, _, err := mergeZhengAPIVideoModels(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(merged, `"base_url":"https://zhengapi.com"`) {
+		t.Fatalf("ZhengAPI base URL was not normalized: %s", merged)
+	}
+}
+
 func TestZhengVideoSize(t *testing.T) {
 	cases := map[string]string{
 		"sd-2.0-15s-16x9-480p": "854x480",
