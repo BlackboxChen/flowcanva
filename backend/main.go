@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -34,7 +35,11 @@ func main() {
 	h := &Handler{db: db, log: logger, cfg: cfg}
 	r := setupRouter(h, cfg)
 
-	logger.Info("server ready", "port", cfg.Port)
+	listenAddr := cfg.Port
+	if strings.HasPrefix(listenAddr, ":") {
+		listenAddr = "127.0.0.1" + listenAddr
+	}
+	logger.Info("server ready", "port", listenAddr)
 
 	if cfg.Embedded {
 		go func() {
@@ -45,7 +50,7 @@ func main() {
 		}()
 	}
 
-	if err := r.Run(cfg.Port); err != nil {
+	if err := r.Run(listenAddr); err != nil {
 		logger.Error("server failed", "error", err)
 		panic(err)
 	}
