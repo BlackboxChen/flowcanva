@@ -71,6 +71,7 @@ interface DisplayImage {
   label: string
   displayLabel: string
   isRef: boolean
+  edgeId?: string
   mediaType?: 'image' | 'video' | 'audio'
 }
 
@@ -100,11 +101,11 @@ watch(resolutionOptions, (options) => {
 function rebuildDisplay() {
   const list: DisplayImage[] = []
   const counters: Record<string, number> = {}
-  for (const [, img] of connectedImages.value) {
+  for (const [edgeId, img] of connectedImages.value) {
     const mediaType = img.mediaType || 'image'
     const index = counters[mediaType] || 0
     counters[mediaType] = index + 1
-    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: mediaLabel(mediaType, index), isRef: true, mediaType })
+    list.push({ id: img.id, url: img.url, label: img.name, displayLabel: mediaLabel(mediaType, index), isRef: true, edgeId, mediaType })
   }
   for (const img of images.value) {
     const label = img.name || '上传'
@@ -597,9 +598,21 @@ async function generate() {
   } finally { loading.value = false }
 }
 
-function removeReference(img: { id: number | string; url: string }) {
+function removeReference(img: { id: number | string; url: string; isRef?: boolean; edgeId?: string }) {
   images.value = images.value.filter(image => image.id !== img.id)
-  if (previewImg.value?.id === img.id) previewImg.value = null
+  if (img.edgeId) {
+    connectedImages.value.delete(img.edgeId)
+    emit('remove-connected-edge', img.edgeId)
+  } else {
+    // 兼容旧数据或没有携带 edgeId 的连线参考图。
+    for (const [edgeId, connected] of connectedImages.value) {
+      if (String(connected.id) === String(img.id) && connected.url === img.url) {
+        connectedImages.value.delete(edgeId)
+        emit('remove-connected-edge', edgeId)
+      }
+    }
+  }
+  if (previewImg.value?.id === img.id && previewImg.value?.url === img.url) previewImg.value = null
   rebuildDisplay()
   emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
 }
@@ -670,7 +683,7 @@ watch(modalOpen, async (v) => {
           <span v-if="img.mediaType === 'audio'" class="w-full h-full flex items-center justify-center bg-cyan-500/15 text-cyan-300 text-lg">♫</span>
           <img v-else :src="img.url" class="w-full h-full object-cover" />
           <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.displayLabel }}</span>
-          <button v-if="!img.isRef" type="button" class="absolute top-0 right-0 z-10 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" title="删除参考图" @pointerdown.stop @click.stop="removeReference({ id: img.id, url: img.url })">×</button>
+          <button type="button" class="absolute top-0 right-0 z-10 w-4 h-4 rounded-full bg-neutral-800/95 border border-white/40 text-white/80 hover:text-white hover:bg-red-500/80 flex items-center justify-center text-[10px] leading-none" title="删除参考图" @pointerdown.stop @click.stop="removeReference(img)">×</button>
         </div>
         <button class="shrink-0 w-10 h-10 rounded-lg border border-white/15 flex flex-col items-center justify-center text-white/40 hover:text-white/60 hover:border-white/25 transition-colors gap-0.5" @click="onAddImage">
           <span class="text-sm leading-none">+</span>
@@ -768,6 +781,7 @@ watch(modalOpen, async (v) => {
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">
               <img :src="img.url" class="w-full h-full object-cover" />
               <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ img.displayLabel }}</span>
+              <button type="button" class="absolute top-0 right-0 z-10 w-5 h-5 rounded-full bg-neutral-800/95 border border-white/40 text-white/80 hover:text-white hover:bg-red-500/80 flex items-center justify-center text-xs leading-none" title="删除参考图" @pointerdown.stop @click.stop="removeReference(img)">×</button>
             </div>
           </div>
         </div>
