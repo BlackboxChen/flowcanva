@@ -93,8 +93,37 @@ function createMentionChip(reference: UploadImage): HTMLElement {
   chip.className = 'inline-flex items-center gap-0.5 align-middle'
   chip.contentEditable = 'false'
   chip.innerHTML = `<img src="${reference.dataUrl}" class="inline w-4 h-4 rounded object-cover" /><span class="text-blue-400">@${reference.name}</span>`
+  chip.setAttribute('data-mention-id', String(reference.id))
   chip.setAttribute('data-mention', reference.name)
   return chip
+}
+
+// 删除或重排参考图后，按图片稳定 id / 缩略图地址重新绑定芯片，
+// 这样图片3会跟随新编号变成图片2，被删除的图片芯片则直接移除。
+function refreshMentionChips(anchor?: 'inline' | 'modal') {
+  for (const editor of [editableRef.value, modalEditableRef.value]) {
+    if (!editor) continue
+    for (const mention of Array.from(editor.querySelectorAll<HTMLElement>('[data-mention]'))) {
+      const mentionId = mention.dataset.mentionId
+      const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
+      const reference = images.value.find(image => (
+        (mentionId && String(image.id) === mentionId) ||
+        (thumbnailUrl && image.dataUrl === thumbnailUrl)
+      ))
+      if (!reference) {
+        mention.remove()
+        continue
+      }
+      mention.dataset.mentionId = String(reference.id)
+      mention.dataset.mention = reference.name
+      const thumbnail = mention.querySelector<HTMLImageElement>('img')
+      if (thumbnail && thumbnail.src !== reference.dataUrl) thumbnail.src = reference.dataUrl
+      const label = mention.querySelector<HTMLElement>('.text-blue-400')
+      if (label) label.textContent = `@${reference.name}`
+    }
+  }
+  const source = anchor === 'modal' ? modalEditableRef.value : editableRef.value
+  if (source) syncPrompt(anchor)
 }
 
 function convertTextMentions(editor: HTMLElement | null) {
@@ -213,6 +242,7 @@ watch(() => props.nodeInputs, (inputs) => {
           images.value.sort((a, b) => a.id - b.id)
           normalizeMediaNames()
           nextTick(() => {
+            refreshMentionChips()
             convertTextMentions(editableRef.value)
             convertTextMentions(modalEditableRef.value)
           })
@@ -230,6 +260,7 @@ watch(() => props.nodeInputs, (inputs) => {
   }
   updateModeByImages()
   nextTick(() => {
+    refreshMentionChips()
     convertTextMentions(editableRef.value)
     convertTextMentions(modalEditableRef.value)
   })
@@ -396,11 +427,19 @@ function onAddMedia() {
   input.click()
 }
 
-function removeImage(img: UploadImage) {
+function removeImage(img: UploadImage, anchor: 'inline' | 'modal' = 'inline') {
   images.value = images.value.filter(i => i.id !== img.id)
   for (const [edgeId, connImg] of connectedImages.value) {
     if (connImg.id === img.id) { connectedImages.value.delete(edgeId); emit('remove-connected-edge', edgeId); break }
   }
+  normalizeMediaNames()
+  updateModeByImages()
+  nextTick(() => {
+    refreshMentionChips(anchor)
+    convertTextMentions(editableRef.value)
+    convertTextMentions(modalEditableRef.value)
+    emit('save', buildContent({ videos: videos.value, _loading: false, _error: '' }))
+  })
 }
 
 function onInput() {
@@ -543,7 +582,7 @@ watch(modalOpen, async (v) => {
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </div>
           <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5 leading-tight">{{ img.name }}</span>
-          <button class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" @click.stop="removeImage(img)">×</button>
+          <button class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-[10px] leading-none" @click.stop="removeImage(img, 'inline')">×</button>
         </div>
         <button class="shrink-0 w-10 h-10 rounded-lg border border-white/15 flex flex-col items-center justify-center text-white/40 hover:text-white/60 hover:border-white/25 transition-colors gap-0.5" @click="onAddMedia">
           <span class="text-sm leading-none">+</span>
@@ -633,6 +672,7 @@ watch(modalOpen, async (v) => {
                 <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               </div>
               <span class="absolute bottom-0 left-0 right-0 text-[7px] text-center bg-black/60 text-white/80 truncate px-0.5">{{ img.name }}</span>
+              <button class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-neutral-800 border border-white/20 text-white/60 hover:text-white flex items-center justify-center text-xs leading-none" @click.stop="removeImage(img, 'modal')">×</button>
             </div>
           </div>
           <div class="relative">

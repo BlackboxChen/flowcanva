@@ -184,7 +184,11 @@ function refreshMentionThumbnails() {
       const reference = references.get(mention.dataset.mentionId || '')
       const thumbnail = mention.querySelector<HTMLImageElement>('img')
       const label = mention.querySelector<HTMLElement>('.text-blue-400')
-      if (!reference) continue
+      if (!reference) {
+        mention.remove()
+        editorChanged = true
+        continue
+      }
       if (thumbnail && thumbnail.getAttribute('src') !== reference.url) {
         thumbnail.src = reference.url
         editorChanged = true
