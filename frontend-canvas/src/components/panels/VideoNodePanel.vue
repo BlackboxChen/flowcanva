@@ -236,6 +236,10 @@ watch(() => props.nodeInputs, (inputs) => {
         const localId = imageCounter
         const mediaType = inp.data?.mediaType || inferMediaType(sourceUrl)
         const add = (dataUrl: string) => {
+          // Compression is asynchronous. The edge may have been removed while
+          // it was in flight; do not resurrect that stale reference.
+          const stillConnected = (props.nodeInputs || []).some(input => input.edgeId === inp.edgeId)
+          if (!stillConnected) return
           const img = { id: localId, name: inp.data?.name || inp.data?.filename || `文件${localId}`, dataUrl, mediaType }
           connectedImages.value.set(inp.edgeId, img)
           images.value.push(img)
