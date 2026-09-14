@@ -16,6 +16,9 @@ func TestBuildMegaBYVideoPayloadUsesPublicModelAndDocumentFields(t *testing.T) {
 	if payload["model"] != "alibaba/wan-3.0" || payload["duration"] != 8 {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
+	if payload["aspect_ratio"] != "16:9" || payload["ratio"] != "16:9" {
+		t.Fatalf("aspect ratio missing from payload: %#v", payload)
+	}
 	if _, ok := payload["referenceImages"]; !ok {
 		t.Fatal("referenceImages missing")
 	}

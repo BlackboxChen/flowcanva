@@ -63,6 +63,10 @@ func buildMegaBYVideoPayload(req VideoGenRequest) (map[string]any, error) {
 	}
 	payload := map[string]any{"model": megaBYModelName(req.Model), "prompt": req.Prompt, "duration": duration}
 	if req.Ratio != "" {
+		// MegaBY's /v1/videos contract uses aspect_ratio. Keep ratio as a
+		// compatibility alias for older gateway deployments, but always send the
+		// canonical field so 16:9 is not silently treated as the default 1:1.
+		payload["aspect_ratio"] = req.Ratio
 		payload["ratio"] = req.Ratio
 	}
 	if req.Resolution != "" {
