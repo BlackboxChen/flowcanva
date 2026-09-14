@@ -44,6 +44,7 @@ const {
   zoomIn,
   zoomOut,
   navigateTo,
+  focusOn,
 } = useCanvas()
 
 const {
@@ -433,6 +434,12 @@ function handleNavigate(wx: number, wy: number) {
   navigateTo(wx, wy)
 }
 
+function handleFocusNode(nodeId: string) {
+  const node = nodes.value.find(item => item.id === nodeId)
+  if (!node) return
+  focusOn(node.x, node.y, node.width, node.height)
+}
+
 function handleLayerSelect(id: string) {
   selectNode(id)
   const n = nodes.value.find(x => x.id === id)
@@ -659,6 +666,7 @@ async function handleSavePanel(content: string) {
       @remove-asset="handleRemoveAsset"
       @create-asset-from-screenshot="handleCreateAssetFromScreenshot"
       @grid-split="handleGridSplit"
+      @focus-node="handleFocusNode"
     />
 
     <LeftToolbar

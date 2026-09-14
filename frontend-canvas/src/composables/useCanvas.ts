@@ -137,6 +137,25 @@ export function useCanvas() {
     viewport.oy = window.innerHeight / 2 - wy * viewport.zoom
   }
 
+  // 将节点中心定位到视口中心，并按节点尺寸计算一个适合阅读/编辑的缩放比例。
+  function focusOn(wx: number, wy: number, width: number, height: number) {
+    const viewportWidth = Math.max(window.innerWidth, 320)
+    const viewportHeight = Math.max(window.innerHeight, 240)
+    const padding = 120
+    const availableWidth = Math.max(viewportWidth - padding * 2, 240)
+    const availableHeight = Math.max(viewportHeight - padding * 2, 180)
+    const fitZoom = Math.min(
+      availableWidth / Math.max(width, 1),
+      availableHeight / Math.max(height, 1),
+    )
+    const targetZoom = clamp(fitZoom * 0.85, 0.5, 2.5)
+    const centerX = wx + width / 2
+    const centerY = wy + height / 2
+    viewport.zoom = targetZoom
+    viewport.ox = viewportWidth / 2 - centerX * targetZoom
+    viewport.oy = viewportHeight / 2 - centerY * targetZoom
+  }
+
   return {
     viewport: readonly(viewport) as ViewportState,
     worldStyle,
@@ -153,6 +172,7 @@ export function useCanvas() {
     zoomOut,
     zoomAt,
     navigateTo,
+    focusOn,
   }
 }
 

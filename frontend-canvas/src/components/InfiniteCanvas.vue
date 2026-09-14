@@ -55,6 +55,7 @@ const emit = defineEmits<{
   (e: 'remove-asset', id: string): void
   (e: 'create-asset-from-screenshot', imageUrl: string, name: string): void
   (e: 'grid-split', data: { cols: number; rows: number; urls: string[] }): void
+  (e: 'focus-node', id: string): void
 }>()
 
 // 连线拖拽状态
@@ -488,6 +489,11 @@ const showDirectorEditor = ref(false)
 function onPanelSave(content: string) {
   emit('save-panel', content)
 }
+
+function onNodeDoubleClick(id: string) {
+  emit('select', id)
+  emit('focus-node', id)
+}
 </script>
 
 <template>
@@ -568,7 +574,7 @@ function onPanelSave(content: string) {
         @edit-director="showDirectorEditor = true"
         @grid-split="(data: any) => emit('grid-split', data)"
         @image-loaded="($event: any) => emit('image-loaded', node.id, $event.w, $event.h)"
-        @dblclick.prevent
+        @dblclick.prevent="onNodeDoubleClick(node.id)"
       />
 
       <component
