@@ -471,15 +471,17 @@ function onModalInput() {
   handleMention('modal')
 }
 
-async function uploadToImageHost(dataUrl: string): Promise<string> {
+async function uploadToImageHost(dataUrl: string, forceHost = false): Promise<string> {
   const res = await fetch('/api/upload-image-host', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data_url: dataUrl, force_host: true }),
+    body: JSON.stringify({ data_url: dataUrl, force_host: forceHost }),
   })
   if (!res.ok) throw new Error('upload failed')
   const data = await res.json()
-  return data.url
+  const url = String(data.url || '')
+  if (forceHost && !/^https?:\/\//i.test(url)) throw new Error('图床未返回公网直链')
+  return url
 }
 
 async function ensurePublicMediaURL(url: string, forceHost = false): Promise<string> {
@@ -494,7 +496,9 @@ async function ensurePublicMediaURL(url: string, forceHost = false): Promise<str
     reader.onerror = () => reject(reader.error || new Error('读取参考素材失败'))
     reader.readAsDataURL(blob)
   })
-  return uploadToImageHost(dataURL)
+  // Local/data URLs are never reachable by an upstream provider. They must be
+  // published as an actual HTTP(S) URL regardless of the provider setting.
+  return uploadToImageHost(dataURL, true)
 }
 
 async function generate() {
@@ -513,11 +517,28 @@ async function generate() {
     const imgUrls = images.value.filter(i => i.mediaType === 'image').map(i => i.dataUrl).filter(Boolean)
     const vidRefs = images.value.filter(i => i.mediaType === 'video').map(i => i.dataUrl).filter(Boolean)
     const audRefs = images.value.filter(i => i.mediaType === 'audio').map(i => i.dataUrl).filter(Boolean)
-    if (vidRefs.length > 0) body.video_urls = vidRefs
+    const protocol = String(modelConfig?.protocol || '').toLowerCase()
+    const requiresPublicImageURLs = protocol === 'megaby_video'
+      || protocol === 'geeknow_video'
+      || protocol === 'zhengapi_video'
+      || /^(?:megaby-|wan[-_]?3(?:\.0)?)/i.test(selectedModel.value)
+    // MegaBY 等上游要求参考视频必须是公网可读的绝对 http/https URL；本地 /uploads 或 data: 地址先上传图床再提交。
+    if (vidRefs.length > 0) {
+      const publicVidRefs = await Promise.all(vidRefs.map(async url => {
+        try { return await ensurePublicMediaURL(url, requiresPublicImageURLs) } catch (error: any) {
+          if (requiresPublicImageURLs) throw new Error(`参考视频上传公网图床失败：${error?.message || '未知错误'}`)
+          return url
+        }
+      }))
+      body.video_urls = publicVidRefs
+    }
     // MegaBY 需要能从公网读取音频；本地 /uploads 地址先上传图床再提交。
     if (audRefs.length > 0) {
       const publicAudRefs = await Promise.all(audRefs.map(async url => {
-        try { return await ensurePublicMediaURL(url) } catch { return url }
+        try { return await ensurePublicMediaURL(url, requiresPublicImageURLs) } catch (error: any) {
+          if (requiresPublicImageURLs) throw new Error(`参考音频上传公网图床失败：${error?.message || '未知错误'}`)
+          return url
+        }
       }))
       body.audio_urls = publicAudRefs
     }
@@ -526,9 +547,14 @@ async function generate() {
     for (const url of imgUrls) {
       try {
         uploadedUrls.push(url.startsWith('data:')
-          ? await uploadToImageHost(url)
-          : await ensurePublicMediaURL(url, forceImageHost))
-      } catch { uploadedUrls.push(url) }
+          ? await uploadToImageHost(url, true)
+          : await ensurePublicMediaURL(url, requiresPublicImageURLs || forceImageHost))
+      } catch (error: any) {
+        if (requiresPublicImageURLs || forceImageHost) {
+          throw new Error(`参考图上传公网图床失败：${error?.message || '未知错误'}`)
+        }
+        uploadedUrls.push(url)
+      }
     }
     if (selectedMode.value !== '文生视频' && uploadedUrls.length > 0) {
       if (selectedMode.value === '首帧') body.image_url = uploadedUrls[0]
