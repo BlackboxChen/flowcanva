@@ -192,8 +192,11 @@ function refreshMentionThumbnails() {
         editorChanged = true
         continue
       }
-      mention.dataset.mentionId = String(reference.id)
-      mention.dataset.mention = reference.label
+      if (mention.dataset.mentionId !== String(reference.id) || mention.dataset.mention !== reference.label) {
+        mention.dataset.mentionId = String(reference.id)
+        mention.dataset.mention = reference.label
+        editorChanged = true
+      }
       if (thumbnail && thumbnail.getAttribute('src') !== reference.url) {
         thumbnail.src = reference.url
         editorChanged = true
