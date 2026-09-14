@@ -127,7 +127,10 @@ function refreshMentionChips(anchor?: 'inline' | 'modal') {
   // restored, so never overwrite an existing prompt with that transient value.
   const sourceAnchor = anchor || (modalOpen.value ? 'modal' : 'inline')
   const source = sourceAnchor === 'modal' ? modalEditableRef.value : editableRef.value
-  if (source && (source.innerHTML || !promptHtml.value)) syncPrompt(sourceAnchor)
+  // An explicit edit (image removal from either editor) may legitimately leave
+  // the editor empty. Without an explicit anchor, an empty editor is usually
+  // just the pre-mount state and must not overwrite a saved plain-text prompt.
+  if (source && (source.innerHTML || anchor)) syncPrompt(sourceAnchor)
 }
 
 function convertTextMentions(editor: HTMLElement | null) {
