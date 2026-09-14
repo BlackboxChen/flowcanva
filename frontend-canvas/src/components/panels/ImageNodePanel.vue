@@ -180,8 +180,11 @@ function refreshMentionThumbnails() {
   for (const editor of [editableRef.value, modalContentEditable.value]) {
     if (!editor) continue
     let editorChanged = false
-    for (const mention of editor.querySelectorAll<HTMLElement>('[data-mention-id]')) {
-      const reference = references.get(mention.dataset.mentionId || '')
+    for (const mention of editor.querySelectorAll<HTMLElement>('[data-mention]')) {
+      const mentionId = mention.dataset.mentionId || ''
+      const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
+      const reference = references.get(mentionId)
+        || allDisplayImages.value.find(image => thumbnailUrl && image.url === thumbnailUrl)
       const thumbnail = mention.querySelector<HTMLImageElement>('img')
       const label = mention.querySelector<HTMLElement>('.text-blue-400')
       if (!reference) {
@@ -189,6 +192,8 @@ function refreshMentionThumbnails() {
         editorChanged = true
         continue
       }
+      mention.dataset.mentionId = String(reference.id)
+      mention.dataset.mention = reference.label
       if (thumbnail && thumbnail.getAttribute('src') !== reference.url) {
         thumbnail.src = reference.url
         editorChanged = true
