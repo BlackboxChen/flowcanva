@@ -122,8 +122,12 @@ function refreshMentionChips(anchor?: 'inline' | 'modal') {
       if (label) label.textContent = `@${reference.name}`
     }
   }
-  const source = anchor === 'modal' ? modalEditableRef.value : editableRef.value
-  if (source) syncPrompt(anchor)
+  // When the modal is open it is the active source of truth. During initial
+  // mount the inline editor can still be empty while promptHtml is being
+  // restored, so never overwrite an existing prompt with that transient value.
+  const sourceAnchor = anchor || (modalOpen.value ? 'modal' : 'inline')
+  const source = sourceAnchor === 'modal' ? modalEditableRef.value : editableRef.value
+  if (source && (source.innerHTML || !promptHtml.value)) syncPrompt(sourceAnchor)
 }
 
 function convertTextMentions(editor: HTMLElement | null) {
