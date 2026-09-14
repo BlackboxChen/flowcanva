@@ -384,6 +384,9 @@ function insertMention(img: { id: any; name: string; src: string }) {
   const chip = document.createElement('span')
   chip.className = 'inline-flex items-center gap-0.5 align-middle'; chip.contentEditable = 'false'
   chip.innerHTML = `<img src="${img.src}" class="inline w-4 h-4 rounded object-cover" /><span class="text-blue-400">@${img.name}</span>`
+  // Keep a stable reference to the underlying image. Display names are
+  // renumbered after deletion, so they cannot be used to identify a chip.
+  chip.setAttribute('data-mention-id', String(img.id))
   chip.setAttribute('data-mention', img.name)
   const space = document.createTextNode(' ')
   range.insertNode(space); range.insertNode(chip)
@@ -399,8 +402,11 @@ function onAddMedia() {
   input.onchange = () => {
     if (!input.files) return
     for (const file of input.files) {
-      imageCounter++
-      const name = file.name || `文件${imageCounter}`
+      // Capture the id for this file before starting any asynchronous reads.
+      // Using the mutable counter inside FileReader callbacks can give every
+      // file in a multi-select the same id, making one delete remove them all.
+      const localId = ++imageCounter
+      const name = file.name || `文件${localId}`
       const reader = new FileReader()
       const isImage = file.type.startsWith('image/')
       const isVideo = file.type.startsWith('video/')
@@ -408,7 +414,7 @@ function onAddMedia() {
       if (isImage) {
         reader.onload = () => {
           compressImage(reader.result as string).then(compressed => {
-            images.value.push({ id: imageCounter, name, dataUrl: compressed, mediaType })
+            images.value.push({ id: localId, name, dataUrl: compressed, mediaType })
             images.value.sort((a, b) => a.id - b.id)
             normalizeMediaNames()
           })
@@ -416,7 +422,7 @@ function onAddMedia() {
         reader.readAsDataURL(file)
       } else {
         reader.onload = () => {
-          images.value.push({ id: imageCounter, name, dataUrl: reader.result as string, mediaType })
+          images.value.push({ id: localId, name, dataUrl: reader.result as string, mediaType })
           images.value.sort((a, b) => a.id - b.id)
           normalizeMediaNames()
         }
