@@ -368,9 +368,24 @@ watch(() => props.node, (n) => {
   if (n) {
     try {
       const data = n.content ? JSON.parse(n.content) : null
-      if (data) { prompt.value = data.prompt || ''; promptHtml.value = data.promptHtml || ''; videos.value = data.videos || [] }
-      else { prompt.value = n.content || ''; promptHtml.value = ''; videos.value = [] }
-    } catch { prompt.value = n.content || ''; videos.value = [] }
+      if (data) {
+        prompt.value = data.prompt || ''
+        promptHtml.value = data.promptHtml || ''
+        videos.value = data.videos || []
+        // 任务状态会持久化到节点内容。面板重新挂载时也要恢复停止按钮，
+        // 否则画布显示“生成中”但面板仍会显示生成箭头。
+        loading.value = data._loading === true
+      } else {
+        prompt.value = n.content || ''
+        promptHtml.value = ''
+        videos.value = []
+        loading.value = false
+      }
+    } catch {
+      prompt.value = n.content || ''
+      videos.value = []
+      loading.value = false
+    }
     const connIds = new Set([...connectedImages.value.values()].map(i => i.id))
     // 保留未连线的手动上传图片，仅删除已断开的连线图片
     images.value = images.value.filter(i => {
@@ -642,7 +657,14 @@ function handleGenerateAction() {
     return
   }
   if (!window.confirm('确定要停止当前视频生成任务吗？')) return
-  generateAbortController.value?.abort()
+  const controller = generateAbortController.value
+  controller?.abort()
+  loading.value = false
+  // 没有本地控制器时，说明面板是从已持久化的进行中状态恢复的；
+  // 至少要把节点状态结束掉，避免画布一直显示“生成中”。
+  if (!controller) {
+    emit('save', buildContent({ videos: videos.value, _loading: false, _loading_started_at: null, _error: '' }))
+  }
 }
 
 watch(modalOpen, async (v) => {

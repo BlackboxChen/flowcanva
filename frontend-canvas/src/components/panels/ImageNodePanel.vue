@@ -309,6 +309,7 @@ watch(() => props.node, (n) => {
         images.value = data.images || []
         generatedImages.value = data.generated_images || []
         errorMessage.value = typeof data._error === 'string' ? data._error : ''
+        loading.value = data._loading === true
         if (!nodeInitialized && data._loading === true) {
           emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '任务连接已中断，请重新生成' }))
         }
@@ -327,6 +328,7 @@ watch(() => props.node, (n) => {
       promptHtml.value = ''
       images.value = []
       generatedImages.value = []
+      loading.value = false
     }
     rebuildDisplay()
     nextTick(() => {
@@ -648,7 +650,12 @@ function handleGenerateAction() {
     return
   }
   if (!window.confirm('确定要停止当前图片生成任务吗？')) return
-  generateAbortController.value?.abort()
+  const controller = generateAbortController.value
+  controller?.abort()
+  loading.value = false
+  if (!controller) {
+    emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
+  }
 }
 
 onUnmounted(() => generateAbortController.value?.abort())
