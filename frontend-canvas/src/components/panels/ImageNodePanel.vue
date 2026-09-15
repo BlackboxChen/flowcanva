@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onUnmounted } from 'vue'
 import type { Node } from '../../types'
 import MentionDropdown from '../MentionDropdown.vue'
 import { useNodeConfigs } from '../../composables/useNodeConfigs'
@@ -22,6 +22,8 @@ const prompt = ref('')
 const displayName = ref('')
 const promptHtml = ref('')
 const loading = ref(false)
+// 当前生成请求的控制器，用于在用户确认后中止请求并停止后端任务。
+const generateAbortController = ref<AbortController | null>(null)
 const errorMessage = ref('')
 const modalOpen = ref(false)
 const images = ref<{ id: number; url: string; name?: string; mediaType?: 'image' | 'video' | 'audio' }[]>([])
@@ -578,6 +580,9 @@ function referenceInstructions(references: DisplayImage[]): string {
 async function generate() {
   if (!prompt.value || loading.value) return
   loading.value = true
+  const abortController = new AbortController()
+  generateAbortController.value = abortController
+  const { signal } = abortController
   errorMessage.value = ''
   const modelConfig = getModelConfig(props.node?.node_type || 'image', selectedModel.value)
   try {
@@ -612,7 +617,7 @@ async function generate() {
     generatedImages.value = []
     emit('save', buildContent({ images: images.value, generated_images: [], _loading: true, _error: '' }))
 
-    const res = await fetch('/api/images/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch('/api/images/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }))
       throw new Error(typeof err.error === 'string' ? err.error : (err.error?.message || res.statusText))
@@ -628,10 +633,25 @@ async function generate() {
     }
     emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
   } catch (e: any) {
-    errorMessage.value = e.message || '图片生成失败'
+    const aborted = signal.aborted || e?.name === 'AbortError'
+    errorMessage.value = aborted ? '' : (e.message || '图片生成失败')
     emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: errorMessage.value }))
-  } finally { loading.value = false }
+  } finally {
+    loading.value = false
+    if (generateAbortController.value === abortController) generateAbortController.value = null
+  }
 }
+
+function handleGenerateAction() {
+  if (!loading.value) {
+    void generate()
+    return
+  }
+  if (!window.confirm('确定要停止当前图片生成任务吗？')) return
+  generateAbortController.value?.abort()
+}
+
+onUnmounted(() => generateAbortController.value?.abort())
 
 function removeReference(img: { id: number | string; url: string; isRef?: boolean; edgeId?: string }) {
   images.value = images.value.filter(image => image.id !== img.id)
@@ -789,9 +809,9 @@ watch(modalOpen, async (v) => {
             <svg class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
         </div>
-        <button class="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center text-neutral-900 hover:bg-neutral-200 transition-colors disabled:opacity-50" :disabled="loading" @click="generate">
+        <button class="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center text-neutral-900 hover:bg-neutral-200 transition-colors disabled:opacity-50" :title="loading ? '停止生成' : '生成图片'" @click="handleGenerateAction">
           <svg v-if="!loading" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-          <span v-else class="loading loading-spinner loading-xs" />
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="停止生成"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>
         </button>
       </div>
     </div>
@@ -835,9 +855,9 @@ watch(modalOpen, async (v) => {
             <span class="text-[10px] text-white/30">预设</span>
             <select v-model="selectedPreset" @change="applyPreset" class="appearance-none bg-white/5 border border-white/10 rounded text-xs text-white/50 pl-1.5 pr-4 py-1.5"><option value="" class="bg-neutral-800 text-white/40">预设</option><optgroup v-for="cat in presetCategories" :key="cat" :label="cat"><option v-for="pr in presets.filter(p => p.category === cat)" :key="pr.id" :value="pr.id" class="bg-neutral-800 text-white">{{ pr.name }}</option></optgroup></select>
           </div>
-          <button class="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center text-neutral-900 hover:bg-neutral-200 disabled:opacity-50" :disabled="loading" @click="generate">
+          <button class="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center text-neutral-900 hover:bg-neutral-200 disabled:opacity-50" :title="loading ? '停止生成' : '生成图片'" @click="handleGenerateAction">
             <svg v-if="!loading" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-            <span v-else class="loading loading-spinner loading-xs" />
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-label="停止生成"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>
           </button>
         </div>
       </div>
