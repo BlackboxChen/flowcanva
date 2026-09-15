@@ -32,6 +32,7 @@ const NODE_LABELS: Record<string, string> = {
 
 const {
   viewport,
+  isPanning,
   worldStyle,
   gridStyle,
   screenToWorld,
@@ -63,10 +64,12 @@ const {
   updateNodeConfig,
   removeNode,
   selectNode,
+  expireStaleVideoTasks,
 } = useNodes()
 
 const VIEWPORT_STORAGE_PREFIX = 'flowcanva:viewport:'
 const viewportReady = ref(false)
+let staleVideoTaskTimer: ReturnType<typeof setInterval> | null = null
 
 function viewportStorageKey(id: string) {
   return `${VIEWPORT_STORAGE_PREFIX}${id}`
@@ -201,7 +204,10 @@ function onKeydown(e: KeyboardEvent) {
     return
   }
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (selectedNodeId.value && document.activeElement === document.body) {
+    // 不依赖 activeElement 必须是 body：点击节点、视频控件或画布容器后，
+    // 焦点可能落在这些元素上，但只要没有正在编辑输入内容，就应允许删除选中节点。
+    if (selectedNodeId.value && !editingTarget) {
+      e.preventDefault()
       handleDeleteNode(selectedNodeId.value)
     }
   }
@@ -358,6 +364,7 @@ onMounted(async () => {
     }
   }
   await loadConfigs()
+  staleVideoTaskTimer = setInterval(() => { void expireStaleVideoTasks() }, 60 * 1000)
   document.addEventListener('keydown', onKeydown)
   document.addEventListener('paste', onPaste as any)
   window.addEventListener('focus', loadConfigs)
@@ -367,6 +374,10 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
   document.removeEventListener('paste', onPaste as any)
   window.removeEventListener('focus', loadConfigs)
+  if (staleVideoTaskTimer) {
+    clearInterval(staleVideoTaskTimer)
+    staleVideoTaskTimer = null
+  }
 })
 
 function handleAddNode(type: string) {
@@ -465,7 +476,10 @@ function handleResizeNode(id: string, w: number, h: number, x: number, y: number
 function handleImageLoaded(id: string, w: number, h: number) {
   const nodeRef = nodes.value.find(n => n.id === id)
   if (!nodeRef) return
-  if (!isNaN(w) && !isNaN(h) && (nodeRef.width !== w || nodeRef.height !== h)) {
+  // 上游未返回素材 / 格式无法解码时，浏览器上报的尺寸可能是 0 或 NaN，
+  // 直接应用会把节点压成几乎不可见的小窗口，这里统一拦截。
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return
+  if (nodeRef.width !== w || nodeRef.height !== h) {
     pushHistory()
     resizeNode(id, w, h, nodeRef.x, nodeRef.y)
   }
@@ -642,6 +656,7 @@ async function handleSavePanel(content: string) {
 
     <InfiniteCanvas
       :viewport="viewport"
+      :is-panning="isPanning"
       :world-style="worldStyle"
       :grid-style="gridStyle"
       :nodes="nodes"

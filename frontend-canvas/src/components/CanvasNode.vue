@@ -266,6 +266,7 @@ const nodeStyle = computed(() => {
     top: `${props.node.y + dragDy.value + (resizing.value ? resizeValues.value.y - props.node.y : 0)}px`,
     width: `${resizing.value ? resizeValues.value.w : props.node.width}px`,
     height: `${resizing.value ? resizeValues.value.h : props.node.height}px`,
+    // 画布空白处保持系统默认箭头；指向可拖动节点显示开放手，按住拖动显示闭合手。
     cursor: dragging.value ? 'grabbing' : 'grab',
     userSelect: 'none' as const,
     zIndex: props.zIndex,
@@ -519,6 +520,83 @@ watch(scriptData, () => {
   })
 }, { deep: true })
 
+// ── 媒体节点窗口尺寸 ──────────────────────────────────────────────
+// 视频/图片节点的窗口尺寸是根据素材真实分辨率推导出来的。当上游没返回视频、
+// 返回的视频格式无法解码（或图片地址失效）时，videoWidth/videoHeight /
+// naturalWidth/naturalHeight 会是 0，旧逻辑会据此把窗口压缩成 60×36 的
+// 小窗口。这里统一做兜底：尺寸无效或过小时回退到节点默认尺寸。
+const MEDIA_NODE_DEFAULT: Record<string, { w: number; h: number }> = {
+  video: { w: 480, h: 320 },
+  image: { w: 400, h: 300 },
+}
+const MEDIA_NODE_MIN = { w: 240, h: 160 }
+
+function mediaDefaultSize() {
+  return MEDIA_NODE_DEFAULT[props.node.node_type] || MEDIA_NODE_DEFAULT.video
+}
+
+// 窗口是否已被压到不可用（异常小）
+function isMediaWindowTooSmall() {
+  return props.node.width < MEDIA_NODE_MIN.w || props.node.height < MEDIA_NODE_MIN.h
+}
+
+// 尺寸无效（未取到素材 / 格式不支持）时回退到节点默认窗口尺寸；
+// 只在窗口确实小于默认尺寸时才改，避免覆盖用户手动放大的尺寸。
+function restoreMediaNodeSize() {
+  const d = mediaDefaultSize()
+  if (props.node.width >= d.w && props.node.height >= d.h) return
+  emit('image-loaded', { w: d.w, h: d.h })
+}
+
+// 按素材真实分辨率自适应窗口；尺寸无效或素材过小时一律回退默认尺寸，
+// 保证窗口不会被压成一个几乎看不见的小窗口。
+function applyMediaNaturalSize(w: number, h: number, maxW: number, maxH: number, padW: number, padH: number) {
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+    restoreMediaNodeSize()
+    return
+  }
+  let cw = w
+  let ch = h
+  if (cw > maxW) { ch = ch * maxW / cw; cw = maxW }
+  if (ch > maxH) { cw = cw * maxH / ch; ch = maxH }
+  cw = Math.round(cw) + padW
+  ch = Math.round(ch) + padH
+  if (cw < MEDIA_NODE_MIN.w || ch < MEDIA_NODE_MIN.h) {
+    restoreMediaNodeSize()
+    return
+  }
+  emit('image-loaded', { w: cw, h: ch })
+}
+
+function onImageLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  applyMediaNaturalSize(img.naturalWidth, img.naturalHeight, 600, 480, 60, 36)
+}
+
+function onVideoMetadata(i: number, e: Event) {
+  if (i !== 0) return
+  const v = e.target as HTMLVideoElement
+  applyMediaNaturalSize(v.videoWidth, v.videoHeight, 640, 480, 60, 36)
+}
+
+// 视频无法解码（格式不对 / 文件缺失 / 后端未返回）时，保证窗口不被压小
+function onVideoError(i: number) {
+  if (i !== 0) return
+  restoreMediaNodeSize()
+}
+
+// 视频节点没有可播放地址时，历史数据里可能已经留下了被压小的窗口。
+// 这里做一次性修复：只修一次，之后不再干预用户手动调整的尺寸。
+let videoWindowRepaired = false
+function repairVideoWindowIfNeeded() {
+  if (videoWindowRepaired) return
+  if (props.node.node_type !== 'video') return
+  videoWindowRepaired = true
+  if (!isMediaWindowTooSmall()) return
+  const d = mediaDefaultSize()
+  emit('image-loaded', { w: d.w, h: d.h })
+}
+
 const videoUrls = computed(() => {
   if (props.node.node_type !== 'video') return []
   try {
@@ -603,7 +681,11 @@ onMounted(() => {
   if (props.node.node_type === 'full_image' && fullImageActiveUrl.value) {
     initPanorama(fullImageActiveUrl.value)
   }
+  nextTick(repairVideoWindowIfNeeded)
 })
+
+// 内容刷新（例如生成失败后视频被清空）时再兜底检查一次窗口尺寸
+watch(() => props.node.content, () => nextTick(repairVideoWindowIfNeeded))
 
 
 </script>
@@ -669,7 +751,7 @@ onMounted(() => {
           {{ mediaTaskState.error }}
         </div>
         <template v-if="imageUrls.length > 0">
-          <img v-for="(url, i) in imageUrls" :key="i" :src="url" class="rounded-lg object-contain w-full h-full pointer-events-none select-none" @load="(e) => { const img = e.target as HTMLImageElement; const maxW = 600; const maxH = 480; let w = img.naturalWidth, h = img.naturalHeight; if (w > maxW) { h = h * maxW / w; w = maxW; } if (h > maxH) { w = w * maxH / h; h = maxH; } emit('image-loaded', { w: Math.round(w) + 60, h: Math.round(h) + 36 }); }" />
+          <img v-for="(url, i) in imageUrls" :key="i" :src="url" class="rounded-lg object-contain w-full h-full pointer-events-none select-none" @load="onImageLoad" />
           <!-- 宫格裁剪覆盖层 -->
           <div v-if="imageGridCols > 0 && imageGridRows > 0" class="absolute inset-0 pointer-events-none z-10">
             <div v-for="c in imageGridCols - 1" :key="'vc'+c" class="absolute top-0 bottom-0 border-r border-primary/60" :style="{ left: (c * 100 / imageGridCols) + '%' }" />
@@ -697,7 +779,8 @@ onMounted(() => {
         <template v-if="videoUrls.length > 0">
           <div class="w-full h-full flex flex-col gap-1 overflow-auto">
             <video v-for="(url, i) in videoUrls" :key="i" :src="url" controls class="w-full rounded-lg object-contain max-h-full"
-              @loadedmetadata="(e) => { if (i !== 0) return; const v = e.target as HTMLVideoElement; const maxW = 640; const maxH = 480; let w = v.videoWidth, h = v.videoHeight; if (w > maxW) { h = h * maxW / w; w = maxW; } if (h > maxH) { w = w * maxH / h; h = maxH; } emit('image-loaded', { w: Math.round(w) + 60, h: Math.round(h) + 36 }); }" />
+              @loadedmetadata="onVideoMetadata(i, $event)"
+              @error="onVideoError(i)" />
           </div>
         </template>
         <div v-else class="flex items-center justify-center text-white/30 w-full h-full">

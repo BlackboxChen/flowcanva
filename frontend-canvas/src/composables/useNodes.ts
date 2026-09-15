@@ -2,6 +2,36 @@ import { ref, computed, reactive } from 'vue'
 import type { Node, Edge } from '../types'
 import { fetchCanvas, createCanvas, updateCanvas, createNode, updateNode, deleteNode } from '../api'
 
+// 生成任务脱离页面后无法继续轮询，超过两小时仍未结束就视为已超时。
+export const VIDEO_TASK_TIMEOUT_MS = 2 * 60 * 60 * 1000
+
+function parseTimestamp(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string' || !value.trim()) return NaN
+  const parsed = Date.parse(value.includes('T') ? value : value.replace(' ', 'T'))
+  return Number.isFinite(parsed) ? parsed : NaN
+}
+
+function staleVideoTaskContent(node: Node): string | null {
+  if (node.node_type !== 'video') return null
+  let data: any
+  try { data = JSON.parse(node.content || '{}') } catch { return null }
+  if (data._loading !== true) return null
+
+  // 新任务使用明确的开始时间；历史任务回退到节点最后更新时间。
+  const startedAt = parseTimestamp(data._loading_started_at)
+  const fallbackAt = parseTimestamp(node.updated_at)
+  const referenceAt = Number.isFinite(startedAt) ? startedAt : fallbackAt
+  if (!Number.isFinite(referenceAt) || Date.now() - referenceAt < VIDEO_TASK_TIMEOUT_MS) return null
+
+  return JSON.stringify({
+    ...data,
+    _loading: false,
+    _loading_started_at: null,
+    _error: '视频任务超时（超过2小时未完成）',
+  })
+}
+
 export function useNodes() {
   const nodes = ref<Node[]>([])
   const selectedNodeId = ref<string | null>(null)
@@ -13,6 +43,19 @@ export function useNodes() {
   const selectedNode = computed(() =>
     nodes.value.find(n => n.id === selectedNodeId.value) ?? null
   )
+
+  async function expireStaleVideoTasks() {
+    if (!canvasId.value) return
+    const stale = nodes.value
+      .map(node => ({ node, content: staleVideoTaskContent(node) }))
+      .filter((item): item is { node: Node; content: string } => Boolean(item.content))
+    if (stale.length === 0) return
+
+    await Promise.all(stale.map(async ({ node, content }) => {
+      node.content = content
+      try { await updateNode(canvasId.value!, node.id, { content }) } catch { /* 本地状态仍显示超时，下次继续尝试持久化 */ }
+    }))
+  }
 
   async function loadOrCreateCanvas(preferredId?: string) {
     const res = await fetch('/api/canvases?page_size=100')
@@ -31,6 +74,7 @@ export function useNodes() {
     const cv = await fetchCanvas(canvasId.value!)
     canvasName.value = cv.name
     nodes.value = cv.nodes ?? []
+    await expireStaleVideoTasks()
     for (const n of nodes.value) {
       if (!(n.id in nodeZIndices)) nodeZIndices[n.id] = ++zCounter
     }
@@ -144,5 +188,6 @@ export function useNodes() {
     updateNodeConfig,
     removeNode,
     selectNode,
+    expireStaleVideoTasks,
   }
 }

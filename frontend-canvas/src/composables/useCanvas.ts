@@ -1,4 +1,4 @@
-import { reactive, computed, readonly } from 'vue'
+import { reactive, computed, readonly, ref } from 'vue'
 import type { ViewportState } from '../types'
 
 const MIN_ZOOM = 0.05
@@ -7,7 +7,7 @@ const MAX_ZOOM = 5
 export function useCanvas() {
   const viewport = reactive<ViewportState>({ ox: 0, oy: 0, zoom: 1 })
 
-  let isPanning = false
+  const isPanning = ref(false)
   let lastX = 0
   let lastY = 0
 
@@ -73,7 +73,23 @@ export function useCanvas() {
     viewport.oy = py - worldY * viewport.zoom
   }
 
+  // 提示词/文本编辑器：鼠标在其上时，滚轮只滚动编辑器自身，绝不缩放画布。
+  // 覆盖所有面板的多行编辑器：视频/图片提示词框（.prompt-editor）、
+  // 文本/智能体/剧本面板的 contenteditable、工作流面板的 textarea。
+  // 不含单行 input/select——那些不产生滚动，交给画布缩放即可。
+  const SCROLLABLE_EDITOR_SELECTOR = '.prompt-editor, [contenteditable="true"], textarea'
+
   function onWheel(e: WheelEvent) {
+    const target = e.target as HTMLElement | null
+    const editor = target?.closest?.(SCROLLABLE_EDITOR_SELECTOR) as HTMLElement | null
+    if (editor) {
+      // 鼠标在编辑器上：只管滚动编辑器，不缩放画布。
+      // 这里只 stopPropagation 不 preventDefault —— 保留浏览器对编辑器的原生滚动，
+      // 同时让事件止步于此，避免冒泡到画布根节点触发缩放。
+      // 已到顶/到底时由浏览器自行忽略溢出滚动，从而"停住"，不会再穿透去缩放。
+      e.stopPropagation()
+      return
+    }
     e.preventDefault()
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const px = e.clientX - rect.left
@@ -86,7 +102,7 @@ export function useCanvas() {
     const target = e.target as HTMLElement
     if (target.closest('.canvas-node, button, a, [role="button"], input, select, textarea')) return
 
-    isPanning = true
+    isPanning.value = true
     lastX = e.clientX
     lastY = e.clientY
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -94,7 +110,7 @@ export function useCanvas() {
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!isPanning) return
+    if (!isPanning.value) return
     viewport.ox += e.clientX - lastX
     viewport.oy += e.clientY - lastY
     lastX = e.clientX
@@ -102,8 +118,8 @@ export function useCanvas() {
   }
 
   function onPointerUp(e: PointerEvent) {
-    if (!isPanning) return
-    isPanning = false
+    if (!isPanning.value) return
+    isPanning.value = false
     ;(e.currentTarget as HTMLElement)?.releasePointerCapture(e.pointerId)
     document.body.style.cursor = ''
   }
@@ -158,6 +174,7 @@ export function useCanvas() {
 
   return {
     viewport: readonly(viewport) as ViewportState,
+    isPanning: readonly(isPanning),
     worldStyle,
     gridStyle,
     screenToWorld,

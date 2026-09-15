@@ -172,35 +172,41 @@ function convertTextMentions(editor: HTMLElement | null) {
   }
 }
 
+// 芯片与参考素材的匹配：id 最稳，其次缩略图地址、名称。
+// 匹配不上时**绝不能删除芯片**——上游素材在重新生成、任务失败或页面重载后
+// 会短暂（甚至永久）对不上，旧逻辑会把芯片直接移除，并把失去芯片的 promptHtml
+// 存回数据库，导致提示词里的 @图片N 引用永久丢失。
+function findDisplayReference(mention: HTMLElement) {
+  const mentionId = mention.dataset.mentionId || ''
+  const mentionLabel = mention.dataset.mention || ''
+  const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
+  return (mentionId ? allDisplayImages.value.find(image => String(image.id) === mentionId) : undefined)
+    || allDisplayImages.value.find(image => thumbnailUrl && image.url === thumbnailUrl)
+    || allDisplayImages.value.find(image => mentionLabel && image.label === mentionLabel)
+}
+
 // Mention chips are only a visual representation. Their image URL must follow
 // the current source node instead of retaining a stale URL saved in promptHtml.
 function refreshMentionThumbnails() {
-  const references = new Map(allDisplayImages.value.map(image => [String(image.id), image]))
   let updatedHtml = false
   for (const editor of [editableRef.value, modalContentEditable.value]) {
     if (!editor) continue
     let editorChanged = false
     for (const mention of editor.querySelectorAll<HTMLElement>('[data-mention]')) {
-      const mentionId = mention.dataset.mentionId || ''
-      const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
-      const reference = references.get(mentionId)
-        || allDisplayImages.value.find(image => thumbnailUrl && image.url === thumbnailUrl)
-      const thumbnail = mention.querySelector<HTMLImageElement>('img')
-      const label = mention.querySelector<HTMLElement>('.text-blue-400')
-      if (!reference) {
-        mention.remove()
-        editorChanged = true
-        continue
-      }
+      const reference = findDisplayReference(mention)
+      // 找不到对应素材时保留芯片原样（含原缩略图与 @名称），只跳过刷新。
+      if (!reference) continue
       if (mention.dataset.mentionId !== String(reference.id) || mention.dataset.mention !== reference.label) {
         mention.dataset.mentionId = String(reference.id)
         mention.dataset.mention = reference.label
         editorChanged = true
       }
+      const thumbnail = mention.querySelector<HTMLImageElement>('img')
       if (thumbnail && thumbnail.getAttribute('src') !== reference.url) {
         thumbnail.src = reference.url
         editorChanged = true
       }
+      const label = mention.querySelector<HTMLElement>('.text-blue-400')
       if (label && label.textContent !== `@${reference.displayLabel}`) {
         label.textContent = `@${reference.displayLabel}`
         editorChanged = true
@@ -214,6 +220,21 @@ function refreshMentionThumbnails() {
   if (updatedHtml) updatePromptPlainText()
 }
 
+// 只有用户主动删除某个参考素材时，才移除它对应的芯片。
+function removeMentionChipsForReference(img: { id: number | string; url: string }) {
+  const targetId = String(img.id)
+  for (const editor of [editableRef.value, modalContentEditable.value]) {
+    if (!editor) continue
+    for (const mention of Array.from(editor.querySelectorAll<HTMLElement>('[data-mention]'))) {
+      const mentionId = mention.dataset.mentionId || ''
+      const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
+      const belongs = (mentionId && mentionId === targetId) || (thumbnailUrl && thumbnailUrl === img.url)
+      if (belongs) mention.remove()
+    }
+  }
+  syncPrompt(modalOpen.value ? 'modal' : 'inline')
+}
+
 function updatePromptPlainText() {
   if (!promptHtml.value) return
   const container = document.createElement('div')
@@ -223,11 +244,13 @@ function updatePromptPlainText() {
 
 watch(() => props.nodeInputs, (inputs) => {
   if (!inputs) return
-  const currentEdgeIds = new Set<string>()
+  // 仍然存在的入边（包含上游暂时没有素材的情况）。只有连线真的断开时才移除引用：
+  // 上游节点还在、只是正在重新生成（generated_images 会先被清空）时必须保留引用，
+  // 否则每刷新一次就丢一次引用，提示词里的芯片会被连带删除。
+  const liveEdgeIds = new Set(inputs.map(input => input.edgeId))
   for (const inp of inputs) {
     const sourceUrl = inp.data?.dataUrl || inp.data?.url
     if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && sourceUrl) {
-      currentEdgeIds.add(inp.edgeId)
       const name = typeof inp.data.name === 'string' && inp.data.name.trim()
         ? inp.data.name.trim()
         : `参考-${inp.sourceNodeId.slice(-6)}`
@@ -240,7 +263,7 @@ watch(() => props.nodeInputs, (inputs) => {
     }
   }
   for (const [edgeId] of connectedImages.value) {
-    if (!currentEdgeIds.has(edgeId)) {
+    if (!liveEdgeIds.has(edgeId)) {
       connectedImages.value.delete(edgeId)
     }
   }
@@ -625,6 +648,8 @@ function removeReference(img: { id: number | string; url: string; isRef?: boolea
     }
   }
   if (previewImg.value?.id === img.id && previewImg.value?.url === img.url) previewImg.value = null
+  // 只有用户主动删除素材时才移除对应芯片，其余刷新一律保留提示词原样
+  removeMentionChipsForReference(img)
   rebuildDisplay()
   emit('save', buildContent({ images: images.value, generated_images: generatedImages.value, _loading: false, _error: '' }))
 }
@@ -774,7 +799,7 @@ watch(modalOpen, async (v) => {
 
   <Teleport to="body">
     <div v-if="modalOpen" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70" @click.self="modalOpen = false">
-      <div class="bg-neutral-900 border border-white/20 rounded-2xl w-[600px] max-h-[85vh] flex flex-col shadow-xl">
+      <div class="bg-neutral-900 border border-white/20 rounded-2xl w-[900px] max-h-[90vh] flex flex-col shadow-xl">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <span class="text-sm font-medium text-white/70">图片生成</span>
           <button class="btn btn-xs btn-square bg-white/10 border border-white/30 text-white hover:bg-white/20" @click="modalOpen = false">
@@ -787,7 +812,7 @@ watch(modalOpen, async (v) => {
             <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
               <MentionDropdown placement="inline" :connected-images="allDisplayImages.map(i => ({ id: i.id, name: i.label, displayName: i.displayLabel, dataUrl: i.url, mediaType: i.mediaType }))" :filter="mentionFilter" @insert="insertMention" />
             </div>
-            <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full h-[200px] min-h-[200px] max-h-[200px] bg-transparent outline-0 text-white text-sm leading-5 overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
+            <div ref="modalContentEditable" contenteditable="true" class="prompt-editor w-full h-[400px] min-h-[400px] max-h-[400px] bg-transparent outline-0 text-white text-sm leading-5 overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入图片提示词...'] empty:before:text-white/30" @input="onModalInput" />
           </div>
           <div v-if="allDisplayImages.length > 0" class="flex flex-wrap gap-2">
             <div v-for="img in allDisplayImages" :key="img.id" class="relative w-16 h-16 rounded-lg overflow-hidden border border-white/15 cursor-pointer" @click="previewImg = img">

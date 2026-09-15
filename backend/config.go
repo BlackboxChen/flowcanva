@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -34,9 +35,7 @@ type Config struct {
 }
 
 func loadConfig() Config {
-	loadEnvFile(".env")
-	// 开发脚本从 backend 目录启动，项目根目录的 .env 作为第二查找位置。
-	loadEnvFile("../.env")
+	loadEnvFiles()
 	embedded := os.Getenv("EMBEDDED") == "true"
 	if !embedded {
 		embedded = embedHasContent()
@@ -64,6 +63,27 @@ func loadConfig() Config {
 		OSSBucket:           os.Getenv("OSS_BUCKET"),
 		OSSRegion:           os.Getenv("OSS_REGION"),
 		OSSEndpoint:         strings.TrimRight(os.Getenv("OSS_ENDPOINT"), "/"),
+	}
+}
+
+// loadEnvFiles makes configuration independent of the process working directory.
+// This matters for release builds started from a shortcut or another directory.
+func loadEnvFiles() {
+	paths := []string{".env", "../.env"}
+	if executable, err := os.Executable(); err == nil {
+		dir := filepath.Dir(executable)
+		paths = append(paths, filepath.Join(dir, ".env"), filepath.Join(dir, "..", ".env"))
+	}
+	seen := map[string]bool{}
+	for _, path := range paths {
+		if absolute, err := filepath.Abs(path); err == nil {
+			path = absolute
+		}
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		loadEnvFile(path)
 	}
 }
 

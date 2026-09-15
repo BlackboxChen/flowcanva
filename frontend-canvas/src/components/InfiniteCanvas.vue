@@ -26,6 +26,7 @@ const panelMap: Record<string, any> = {
 
 const props = defineProps<{
   viewport: ViewportState
+  isPanning: boolean
   worldStyle: Record<string, string>
   gridStyle: Record<string, string>
   nodes: Node[]
@@ -119,10 +120,15 @@ function taskPanelStyle(node: Node): Record<string, string> {
     return { display: 'none' }
   }
   const zoom = Math.max(props.viewport.zoom, 0.001)
+  // 面板宽度是屏幕像素常量，而 left/top 位于世界坐标系。
+  // 元素先按 scale(1/zoom) 缩放再被世界层 scale(zoom) 抵消，因此它在世界坐标中实际占
+  // TASK_PANEL_WIDTH / zoom 宽。水平居中必须减掉世界坐标下的半宽（TASK_PANEL_WIDTH / 2 / zoom），
+  // 否则在非 100% 缩放下会整体偏移。
+  const panelWorldWidth = TASK_PANEL_WIDTH / zoom
   return {
     display: '',
     position: 'absolute',
-    left: `${node.x + node.width / 2 - TASK_PANEL_WIDTH / 2}px`,
+    left: `${node.x + node.width / 2 - panelWorldWidth / 2}px`,
     // 间距也换算到世界坐标，保持屏幕上的视觉间距不随缩放改变。
     top: `${node.y + node.height + PANEL_GAP / zoom}px`,
     width: `${TASK_PANEL_WIDTH}px`,
@@ -499,7 +505,7 @@ function onNodeDoubleClick(id: string) {
 <template>
   <div
     class="canvas-viewport"
-    :style="{ touchAction: 'none', width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', cursor: connecting ? 'crosshair' : 'grab', backgroundColor: '#0d0e14' }"
+    :style="{ touchAction: 'none', width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', cursor: connecting ? 'crosshair' : (isPanning ? 'grabbing' : 'default'), backgroundColor: '#0d0e14' }"
   >
     <!-- 网格层 -->
     <div :style="gridStyle" />
@@ -516,13 +522,24 @@ function onNodeDoubleClick(id: string) {
           v-for="edge in edges"
           :key="edge.id"
           :d="edgePath(edge)"
-          stroke="rgba(255,255,255,0.25)"
-          stroke-width="2"
+          stroke="transparent"
+          stroke-width="14"
           fill="none"
-          class="pointer-events-auto cursor-pointer hover:stroke-error hover:stroke-[3px] transition-colors"
+          class="pointer-events-auto cursor-grab active:cursor-grabbing"
+          style="pointer-events: stroke;"
           @click.stop="emit('delete-edge', edge.id)"
           @pointerdown.stop
           @pointerup.stop
+        />
+        <!-- 可视连线：保持细线显示，点击由上方透明命中层处理 -->
+        <path
+          v-for="edge in edges"
+          :key="`${edge.id}-visible`"
+          :d="edgePath(edge)"
+          stroke="rgba(255,255,255,0.25)"
+          stroke-width="2"
+          fill="none"
+          class="pointer-events-none transition-colors"
         />
         <!-- 临时拖拽连线 -->
         <path

@@ -65,7 +65,7 @@ watch(countOptions, (options) => {
   if (!options.includes(selectedCount.value)) selectedCount.value = options[0]
 })
 
-interface UploadImage { id: number; name: string; dataUrl: string; mediaType: 'image' | 'video' | 'audio' }
+interface UploadImage { id: number; name: string; dataUrl: string; mediaType: 'image' | 'video' | 'audio'; sourceUrl?: string }
 const images = ref<UploadImage[]>([])
 let imageCounter = 0
 const connectedImages = ref<Map<string, UploadImage>>(new Map())
@@ -98,22 +98,38 @@ function createMentionChip(reference: UploadImage): HTMLElement {
   return chip
 }
 
-// 删除或重排参考图后，按图片稳定 id / 缩略图地址重新绑定芯片，
-// 这样图片3会跟随新编号变成图片2，被删除的图片芯片则直接移除。
+// 本地 /uploads 路径与 data URL 无法直接比较：路径类统一取文件名作为比对键，
+// data URL 保持原串。这样"老芯片里存的 /uploads/xxx.jpg"也能和当前引用对上。
+function mediaRefKey(url: string) {
+  if (!url) return ''
+  if (url.startsWith('data:')) return url
+  return url.split('?')[0].split('#')[0].split('/').pop() || ''
+}
+
+// 芯片与参考素材的匹配：id 最稳，其次缩略图地址、素材源地址、名称。
+// 匹配不上时**绝不能删除芯片**——上游素材在重新生成、任务失败或页面重载后
+// 会短暂（甚至永久）对不上，旧逻辑会把芯片直接移除，并把失去芯片的 promptHtml
+// 存回数据库，导致提示词里的 @图片N 引用永久丢失。
+function findReferenceForChip(mention: HTMLElement) {
+  const mentionId = mention.dataset.mentionId || ''
+  const mentionName = mention.dataset.mention || ''
+  const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
+  const thumbnailKey = mediaRefKey(thumbnailUrl)
+  return images.value.find(image => mentionId && String(image.id) === mentionId)
+    || images.value.find(image => thumbnailUrl && image.dataUrl === thumbnailUrl)
+    || images.value.find(image => thumbnailKey && mediaRefKey(image.sourceUrl || image.dataUrl) === thumbnailKey)
+    || images.value.find(image => mentionName && image.name === mentionName)
+}
+
+// 参考素材变化后按稳定 id / 缩略图地址重新绑定芯片，让 @图片3 跟随新编号
+// 变成 @图片2；绑定不上的芯片保持原样，绝不删除（只有用户主动删除素材时才移除）。
 function refreshMentionChips(anchor?: 'inline' | 'modal') {
   for (const editor of [editableRef.value, modalEditableRef.value]) {
     if (!editor) continue
     for (const mention of Array.from(editor.querySelectorAll<HTMLElement>('[data-mention]'))) {
-      const mentionId = mention.dataset.mentionId
-      const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
-      const reference = images.value.find(image => (
-        (mentionId && String(image.id) === mentionId) ||
-        (thumbnailUrl && image.dataUrl === thumbnailUrl)
-      ))
-      if (!reference) {
-        mention.remove()
-        continue
-      }
+      const reference = findReferenceForChip(mention)
+      // 找不到对应素材时保留芯片原样（含原缩略图与 @名称），只跳过刷新。
+      if (!reference) continue
       mention.dataset.mentionId = String(reference.id)
       mention.dataset.mention = reference.name
       const thumbnail = mention.querySelector<HTMLImageElement>('img')
@@ -131,6 +147,23 @@ function refreshMentionChips(anchor?: 'inline' | 'modal') {
   // the editor empty. Without an explicit anchor, an empty editor is usually
   // just the pre-mount state and must not overwrite a saved plain-text prompt.
   if (source && (source.innerHTML || anchor)) syncPrompt(sourceAnchor)
+}
+
+// 只有用户主动删除某个参考素材时，才移除它对应的芯片。
+function removeMentionChipsForImage(img: UploadImage) {
+  const targetId = String(img.id)
+  const targetKey = mediaRefKey(img.sourceUrl || img.dataUrl)
+  for (const editor of [editableRef.value, modalEditableRef.value]) {
+    if (!editor) continue
+    for (const mention of Array.from(editor.querySelectorAll<HTMLElement>('[data-mention]'))) {
+      const mentionId = mention.dataset.mentionId || ''
+      const thumbnailUrl = mention.querySelector<HTMLImageElement>('img')?.getAttribute('src') || ''
+      const belongs = (mentionId && mentionId === targetId)
+        || (thumbnailUrl && (thumbnailUrl === img.dataUrl || thumbnailUrl === img.sourceUrl))
+        || (targetKey && mediaRefKey(thumbnailUrl) === targetKey)
+      if (belongs) mention.remove()
+    }
+  }
 }
 
 function convertTextMentions(editor: HTMLElement | null) {
@@ -233,41 +266,44 @@ function compressImage(dataUrl: string): Promise<string> {
 
 watch(() => props.nodeInputs, (inputs) => {
   if (!inputs) return
-  const currentEdgeIds = new Set<string>()
+  // 仍然存在的入边（包含上游暂时没有素材的情况）。只有连线真的断开时才移除引用：
+  // 上游节点还在、只是正在重新生成（generated_images 会先被清空）时必须保留引用，
+  // 否则每刷新一次就会丢一次引用，提示词里的芯片会被连带删除。
+  const liveEdgeIds = new Set(inputs.map(input => input.edgeId))
   for (const inp of inputs) {
     const sourceUrl = inp.data?.dataUrl || inp.data?.url
-    if ((inp.sourceNodeType === 'asset' || inp.sourceNodeType === 'image' || inp.sourceNodeType === 'video') && sourceUrl) {
-      currentEdgeIds.add(inp.edgeId)
-      if (!connectedImages.value.has(inp.edgeId)) {
-        imageCounter++
-        const localId = imageCounter
-        const mediaType = inp.data?.mediaType || inferMediaType(sourceUrl)
-        const add = (dataUrl: string) => {
-          // Compression is asynchronous. The edge may have been removed while
-          // it was in flight; do not resurrect that stale reference.
-          const stillConnected = (props.nodeInputs || []).some(input => input.edgeId === inp.edgeId)
-          if (!stillConnected) return
-          const img = { id: localId, name: inp.data?.name || inp.data?.filename || `文件${localId}`, dataUrl, mediaType }
-          connectedImages.value.set(inp.edgeId, img)
-          images.value.push(img)
-          images.value.sort((a, b) => a.id - b.id)
-          normalizeMediaNames()
-          nextTick(() => {
-            refreshMentionChips()
-            convertTextMentions(editableRef.value)
-            convertTextMentions(modalEditableRef.value)
-          })
-        }
-        if (mediaType === 'image') compressImage(sourceUrl).then(add)
-        else add(sourceUrl)
-      }
+    if (inp.sourceNodeType !== 'asset' && inp.sourceNodeType !== 'image' && inp.sourceNodeType !== 'video') continue
+    if (!sourceUrl) continue
+    const existing = connectedImages.value.get(inp.edgeId)
+    // 素材没变就保持引用（含它的本地 id）不动，芯片才能稳定匹配
+    if (existing && existing.sourceUrl === sourceUrl) continue
+    // 上游重新生成了素材：沿用原有 id 原地替换，避免芯片因 id 变化而对不上
+    const localId = existing ? existing.id : ++imageCounter
+    const mediaType = inp.data?.mediaType || inferMediaType(sourceUrl)
+    const add = (dataUrl: string) => {
+      // Compression is asynchronous. The edge may have been removed while
+      // it was in flight; do not resurrect that stale reference.
+      const stillConnected = (props.nodeInputs || []).some(input => input.edgeId === inp.edgeId)
+      if (!stillConnected) return
+      const img = { id: localId, name: inp.data?.name || inp.data?.filename || `文件${localId}`, dataUrl, mediaType, sourceUrl }
+      connectedImages.value.set(inp.edgeId, img)
+      images.value = images.value.filter(i => i.id !== localId)
+      images.value.push(img)
+      images.value.sort((a, b) => a.id - b.id)
+      normalizeMediaNames()
+      nextTick(() => {
+        refreshMentionChips()
+        convertTextMentions(editableRef.value)
+        convertTextMentions(modalEditableRef.value)
+      })
     }
+    if (mediaType === 'image') compressImage(sourceUrl).then(add)
+    else add(sourceUrl)
   }
   for (const [edgeId, img] of connectedImages.value) {
-    if (!currentEdgeIds.has(edgeId)) {
-      connectedImages.value.delete(edgeId)
-      images.value = images.value.filter(i => i.id !== img.id)
-    }
+    if (liveEdgeIds.has(edgeId)) continue
+    connectedImages.value.delete(edgeId)
+    images.value = images.value.filter(i => i.id !== img.id)
   }
   updateModeByImages()
   nextTick(() => {
@@ -358,7 +394,12 @@ watch(prompt, () => {
   promptSaveTimer = setTimeout(() => {
     const existing: any = {}
     try { if (props.node?.content) Object.assign(existing, JSON.parse(props.node.content)) } catch {}
-    emit('save', buildContent({ videos: existing.videos || videos.value, _loading: existing._loading === true, _error: existing._error || '' }))
+    emit('save', buildContent({
+      videos: existing.videos || videos.value,
+      _loading: existing._loading === true,
+      _loading_started_at: existing._loading_started_at ?? null,
+      _error: existing._error || '',
+    }))
   }, 800)
 })
 
@@ -452,6 +493,8 @@ function removeImage(img: UploadImage, anchor: 'inline' | 'modal' = 'inline') {
   normalizeMediaNames()
   updateModeByImages()
   nextTick(() => {
+    // 只有用户主动删除素材时才移除对应芯片，其余刷新一律保留提示词原样
+    removeMentionChipsForImage(img)
     refreshMentionChips(anchor)
     convertTextMentions(editableRef.value)
     convertTextMentions(modalEditableRef.value)
@@ -504,6 +547,7 @@ async function ensurePublicMediaURL(url: string, forceHost = false): Promise<str
 async function generate() {
   if (!prompt.value || loading.value) return
   loading.value = true
+  const loadingStartedAt = Date.now()
   const modelConfig = getModelConfig(props.node?.node_type || 'video', selectedModel.value)
   try {
     const body: Record<string, any> = { model: selectedModel.value, prompt: prompt.value, seconds: selectedDuration.value, ratio: selectedRatio.value, resolution: selectedResolution.value, n: selectedCount.value, mode: selectedMode.value }
@@ -562,7 +606,7 @@ async function generate() {
       else if (selectedMode.value === '全能参考') body.image_urls = uploadedUrls
     }
 
-    emit('save', buildContent({ videos: videos.value, _loading: true, _error: '' }))
+    emit('save', buildContent({ videos: videos.value, _loading: true, _loading_started_at: loadingStartedAt, _error: '' }))
 
     const res = await fetch('/api/video/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(typeof err.error === 'string' ? err.error : (err.error?.message || res.statusText)) }
@@ -571,9 +615,9 @@ async function generate() {
       videos.value = []
       for (let i = 0; i < data.videos.length; i++) videos.value.push({ id: Date.now() + i, url: data.videos[i] })
     }
-    emit('save', buildContent({ videos: videos.value, _loading: false, _error: '' }))
+    emit('save', buildContent({ videos: videos.value, _loading: false, _loading_started_at: null, _error: '' }))
   } catch (e: any) {
-    emit('save', buildContent({ videos: videos.value, _loading: false, _error: e.message || '视频生成失败' }))
+    emit('save', buildContent({ videos: videos.value, _loading: false, _loading_started_at: null, _error: e.message || '视频生成失败' }))
   } finally {
     loading.value = false
   }
@@ -691,7 +735,7 @@ watch(modalOpen, async (v) => {
 
   <Teleport to="body">
     <div v-if="modalOpen" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70" @click.self="modalOpen = false">
-      <div class="bg-neutral-900 border border-white/20 rounded-2xl w-[720px] max-h-[85vh] flex flex-col shadow-xl">
+      <div class="bg-neutral-900 border border-white/20 rounded-2xl w-[900px] max-h-[90vh] flex flex-col shadow-xl">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <span class="text-sm font-medium text-white/70">视频生成</span>
           <button class="btn btn-xs btn-square bg-white/10 border border-white/30 text-white hover:bg-white/20" @click="modalOpen = false">
@@ -722,7 +766,7 @@ watch(modalOpen, async (v) => {
             <div v-if="showMention && mentionAnchor === 'modal'" class="relative z-20">
               <MentionDropdown placement="inline" :connected-images="images" :filter="mentionFilter" @insert="insertMention" />
             </div>
-            <div ref="modalEditableRef" contenteditable="true" class="prompt-editor w-full h-[200px] min-h-[200px] max-h-[200px] bg-transparent outline-0 text-white text-sm leading-5 overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
+            <div ref="modalEditableRef" contenteditable="true" class="prompt-editor w-full h-[400px] min-h-[400px] max-h-[400px] bg-transparent outline-0 text-white text-sm leading-5 overflow-y-auto whitespace-pre-wrap break-words empty:before:content-['输入视频提示词...'] empty:before:text-white/30" @input="onModalInput" />
           </div>
         </div>
         <div class="flex items-center justify-between gap-2 px-4 py-3 border-t border-white/10">
