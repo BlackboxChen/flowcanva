@@ -28,6 +28,7 @@ const NODE_LABELS: Record<string, string> = {
   workflow: '工作流',
   asset: '资产加载',
   director: '导演台',
+  shotlist: '分镜台',
 }
 
 const {

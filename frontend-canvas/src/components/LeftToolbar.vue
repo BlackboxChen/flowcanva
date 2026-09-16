@@ -87,6 +87,13 @@ const emit = defineEmits<{
         <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
       </svg>
 
+      <!-- 分镜台图标 -->
+      <svg v-else-if="nt.type === 'shotlist'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="6" height="16" rx="1"/>
+        <rect x="9" y="4" width="6" height="16" rx="1"/>
+        <rect x="16" y="4" width="6" height="16" rx="1"/>
+      </svg>
+
       <span class="text-[10px] leading-tight text-base-content/50">{{ nt.label }}</span>
     </button>
 

@@ -103,6 +103,7 @@ export function useNodes() {
       workflow: { w: 360, h: 260, color: '#FCE7F3' },
       asset: { w: 320, h: 300, color: '#FEF9E7' },
       director: { w: 480, h: 340, color: '#E8F5E9' },
+      shotlist: { w: 680, h: 420, color: '#E2E8F0' },
     }
     const d = defaults[type]
     const n = await createNode(canvasId.value, {

@@ -51,6 +51,13 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 		api.POST("/comfyui/execute", h.ExecuteComfyUI)
 		api.GET("/comfyui/result/:prompt_id", h.GetComfyUIResult)
 		api.GET("/comfyui/proxy-view", h.ProxyComfyUIImage)
+
+		// 分镜技能（Deepwhite 导演拍摄 v3.7）
+		api.GET("/skills", h.ListSkills)
+		api.GET("/skills/shotlist/steps", h.GetShotlistSteps)
+		api.POST("/skills/shotlist/run", h.RunShotlistStep)
+		api.POST("/skills/shotlist/validate", h.ValidateShotlist)
+		api.POST("/skills/shotlist/export", h.ExportShotlist)
 	}
 
 	admin := r.Group("/api/admin")

@@ -10,6 +10,7 @@ import FullImageNodePanel from './panels/FullImageNodePanel.vue'
 import AgentNodePanel from './panels/AgentNodePanel.vue'
 import WorkflowNodePanel from './panels/WorkflowNodePanel.vue'
 import AssetNodePanel from './panels/AssetNodePanel.vue'
+import ShotlistNodePanel from './panels/ShotlistNodePanel.vue'
 import ScriptEditorModal from './ScriptEditorModal.vue'
 import DirectorEditorModal from './DirectorEditorModal.vue'
 
@@ -22,6 +23,7 @@ const panelMap: Record<string, any> = {
   agent: AgentNodePanel,
   workflow: WorkflowNodePanel,
   asset: AssetNodePanel,
+  shotlist: ShotlistNodePanel,
 }
 
 const props = defineProps<{
@@ -191,6 +193,21 @@ const nodeInputs = computed(() => {
         const parsed = JSON.parse(source.content)
         const videos = parsed.videos || []
         data = videos.length > 0 ? { dataUrl: videos[0].url, mediaType: 'video' } : null
+      } catch { /* keep raw */ }
+    }
+    // 分镜台作为上游时，下游需要的是结构化结果而不是整段 content。
+    if (source.node_type === 'shotlist' && source.content) {
+      try {
+        const parsed = JSON.parse(source.content)
+        data = {
+          state: parsed.state || '',
+          script: parsed.script || null,
+          segments: (parsed.segments || []).map((s: any) => ({
+            id: s.id,
+            title: s.title,
+            prompt: s.prompt || '',
+          })),
+        }
       } catch { /* keep raw */ }
     }
     if (!map[edge.target_node_id]) map[edge.target_node_id] = []

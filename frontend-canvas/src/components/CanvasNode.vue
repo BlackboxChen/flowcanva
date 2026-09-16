@@ -436,6 +436,10 @@ const typeMeta: Record<string, { name: string; icon: string }> = {
     name: '导演台',
     icon: '<circle cx="8" cy="8" r="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="8" cy="11" r="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="8" cy="14" r="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/><line x1="12" y1="2" x2="12" y2="16" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="14" x2="14" y2="14" stroke="currentColor" stroke-width="1.5"/>',
   },
+  shotlist: {
+    name: '分镜台',
+    icon: '<rect x="1" y="2.5" width="4" height="11" rx="0.8" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="6" y="2.5" width="4" height="11" rx="0.8" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="11" y="2.5" width="4" height="11" rx="0.8" stroke="currentColor" stroke-width="1.3" fill="none"/>',
+  },
 }
 
 const currentTypeMeta = computed(() => typeMeta[props.node.node_type] ?? { name: '节点', icon: '' })
@@ -469,6 +473,49 @@ const directorSummary = computed(() => {
 function isSnapHandle(dir: string) {
   return props.snapTarget?.nodeId === props.node.id && props.snapTarget?.dir === dir
 }
+
+const SHOTLIST_STATE_LABELS: Record<string, string> = {
+  SOURCE_READY: '待锁定剧本',
+  SCRIPT_LOCKED: '剧本已锁定',
+  ASSET_CONFIRMED: '资产已确认',
+  MODE_CONFIRMED: '故事板方式已确认',
+  SPATIAL_CONFIRMED: '空间调度已确认',
+  PLAN_CONFIRMED: '分镜规划已确认',
+  STORYBOARD_CONFIRMED: '故事板已确认',
+  PROMPTS_VALIDATED: '提示词已校验',
+  DELIVERED: '已交付',
+}
+
+// 分镜台节点在画布上只做状态概览，真正的操作在配置面板里。
+interface ShotlistSummary {
+  state: string
+  loading: boolean
+  step: string
+  error: string
+  segments: { id: string; title: string; duration: number; hasPrompt: boolean }[]
+}
+
+const shotlistSummary = computed<ShotlistSummary | null>(() => {
+  if (props.node.node_type !== 'shotlist') return null
+  try {
+    const p = JSON.parse(props.node.content || '{}')
+    const segments = Array.isArray(p.segments) ? p.segments : []
+    return {
+      state: SHOTLIST_STATE_LABELS[p.state] || p.state || SHOTLIST_STATE_LABELS.SOURCE_READY,
+      loading: p._loading === true,
+      step: p._step || '',
+      error: typeof p._error === 'string' ? p._error : '',
+      segments: segments.map((s: any) => ({
+        id: s.id || '',
+        title: s.title || '未命名工作段',
+        duration: Number(s.duration_s) || 0,
+        hasPrompt: Boolean(s.prompt),
+      })),
+    }
+  } catch {
+    return { state: SHOTLIST_STATE_LABELS.SOURCE_READY, loading: false, step: '', error: '', segments: [] }
+  }
+})
 
 const assetImageUrl = computed(() => {
   if (props.node.node_type !== 'asset' || !props.node.content) return null
@@ -885,6 +932,36 @@ watch(() => props.node.content, () => nextTick(repairVideoWindowIfNeeded))
         </template>
         <template v-else>
           <p class="text-[10px] text-white/20">空白</p>
+        </template>
+      </div>
+
+      <!-- 分镜台节点 -->
+      <div v-else-if="node.node_type === 'shotlist'" class="h-full w-full flex flex-col gap-2 p-4 overflow-hidden">
+        <template v-if="shotlistSummary">
+          <div class="flex items-center gap-2 shrink-0">
+            <span
+              class="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap"
+              :class="shotlistSummary.loading ? 'bg-amber-500/20 text-amber-200' : 'bg-cyan-500/20 text-cyan-200'"
+            >
+              {{ shotlistSummary.loading ? (shotlistSummary.step || '生成中') : shotlistSummary.state }}
+            </span>
+            <span v-if="shotlistSummary.segments.length" class="text-[11px] text-white/40 truncate">
+              {{ shotlistSummary.segments.length }} 个工作段 ·
+              {{ shotlistSummary.segments.filter(s => s.hasPrompt).length }} 条提示词
+            </span>
+          </div>
+          <div v-if="shotlistSummary.error" class="shrink-0 text-[10px] text-red-300 line-clamp-2">{{ shotlistSummary.error }}</div>
+          <div class="flex-1 min-h-0 overflow-y-auto space-y-1" @wheel.stop>
+            <div v-for="s in shotlistSummary.segments" :key="s.id" class="flex items-center gap-2 text-[11px]">
+              <span class="text-white/30 shrink-0 w-14">{{ s.id }}</span>
+              <span class="truncate flex-1 text-white/60">{{ s.title }}</span>
+              <span class="text-white/30 shrink-0 tabular-nums">{{ s.duration }}s</span>
+              <span class="shrink-0" :class="s.hasPrompt ? 'text-emerald-300' : 'text-white/20'">{{ s.hasPrompt ? '✓' : '—' }}</span>
+            </div>
+            <div v-if="!shotlistSummary.segments.length" class="text-white/25 text-xs pt-2">
+              选中节点后打开配置面板，从「锁定剧本」开始
+            </div>
+          </div>
         </template>
       </div>
     </div>

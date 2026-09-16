@@ -110,7 +110,7 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 	}
 
 	// seed default node configs if not exist
-	types := []string{"text", "image", "video", "table", "full_image", "agent", "workflow", "asset", "director"}
+	types := []string{"text", "image", "video", "table", "full_image", "agent", "workflow", "asset", "director", "shotlist"}
 	for _, t := range types {
 		_, err := db.Exec(
 			`INSERT OR IGNORE INTO node_configs (id, node_type) VALUES (?, ?)`,

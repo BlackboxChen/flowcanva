@@ -51,6 +51,7 @@ const FALLBACK_NAMES: Record<string, string[]> = {
   text: ['GPT-4', 'Claude 3', 'Gemini'],
   agent: ['GPT-4', 'Claude 3', 'Gemini'],
   table: ['GPT-4', 'Claude 3', 'Gemini'],
+  shotlist: ['deepseek-v4-pro'],
 }
 
 export function useNodeConfigs() {

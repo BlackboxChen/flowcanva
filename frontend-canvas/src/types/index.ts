@@ -11,7 +11,7 @@ export interface Canvas {
 export interface Node {
   id: string
   canvas_id: string
-  node_type: 'text' | 'image' | 'video' | 'table' | 'full_image' | 'agent' | 'workflow' | 'asset' | 'director'
+  node_type: 'text' | 'image' | 'video' | 'table' | 'full_image' | 'agent' | 'workflow' | 'asset' | 'director' | 'shotlist'
   x: number
   y: number
   width: number

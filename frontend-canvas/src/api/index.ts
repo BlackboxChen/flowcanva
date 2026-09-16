@@ -1,4 +1,5 @@
 import type { Canvas, Node, Edge, Asset } from '../types'
+import type { ShotlistIssue, ShotlistStepInfo } from '../types/shotlist'
 
 const BASE = '/api'
 
@@ -109,6 +110,49 @@ export function updateAsset(id: string, data: { category?: string; tags?: string
 
 export function deleteAsset(id: string) {
   return req<void>(`/api/admin/assets/${id}`, { method: 'DELETE' })
+}
+
+// 分镜技能（Deepwhite 导演拍摄 v3.7）
+
+export interface ShotlistRunResult {
+  step: string
+  data?: any
+  raw: string
+  parsed: boolean
+}
+
+export function fetchShotlistSteps() {
+  return req<{ version: string; steps: ShotlistStepInfo[]; states: string[] }>(
+    `${BASE}/skills/shotlist/steps`,
+  )
+}
+
+export function runShotlistStep(payload: {
+  step: string
+  input: any
+  model: string
+  channel?: string
+  base_url?: string
+  api_key?: string
+}) {
+  return req<ShotlistRunResult>(`${BASE}/skills/shotlist/run`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function validateShotlist(content: string) {
+  return req<{ errors: ShotlistIssue[]; warnings: ShotlistIssue[] }>(
+    `${BASE}/skills/shotlist/validate`,
+    { method: 'POST', body: JSON.stringify({ content }) },
+  )
+}
+
+export function exportShotlist(content: string) {
+  return req<{ filename: string; markdown: string }>(`${BASE}/skills/shotlist/export`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
 }
 
 // LLM

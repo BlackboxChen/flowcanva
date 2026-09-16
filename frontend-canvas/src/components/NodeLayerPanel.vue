@@ -14,13 +14,13 @@ const emit = defineEmits<{
 const NODE_LABELS: Record<string, string> = {
   text: '文本', image: '图片', video: '视频', table: '剧本',
   full_image: '全图', agent: '智能体', workflow: '工作流',
-  asset: '资产', director: '导演台',
+  asset: '资产', director: '导演台', shotlist: '分镜台',
 }
 
 const NODE_ICONS: Record<string, string> = {
   text: 'T', image: 'I', video: 'V', table: '≡',
   full_image: '◻', agent: 'A', workflow: 'W',
-  asset: '↓', director: 'D',
+  asset: '↓', director: 'D', shotlist: '▤',
 }
 
 const grouped = computed(() => {
