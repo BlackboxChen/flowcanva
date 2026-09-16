@@ -10,6 +10,9 @@ import (
 
 var megaBYVideoModels = []map[string]any{
 	{"name": "megaby-alibaba/wan-3.0", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{}},
+	{"name": "sd2.5max900", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "5.3元/条"}},
+	{"name": "wan3.0", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "5.3元/条"}},
+	{"name": "sdmax900", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "2元/条"}},
 	{"name": "seedance-2.0", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.16"}},
 	{"name": "seedance-2.5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.26"}},
 	{"name": "seedance2_5", "channel": "MegaBY", "base_url": "https://newapi.megabyai.cc", "protocol": "megaby_video", "parameters": map[string]any{"note": "0.24"}},

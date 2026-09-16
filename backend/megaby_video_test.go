@@ -86,3 +86,32 @@ func TestMegaBYSD25ModelConfig(t *testing.T) {
 	}
 	t.Fatal("MegaBY sd-2.5 model is missing")
 }
+
+func TestMegaBYMax900ModelConfigs(t *testing.T) {
+	expectedNotes := map[string]string{
+		"sd2.5max900": "5.3元/条",
+		"wan3.0":      "5.3元/条",
+		"sdmax900":    "2元/条",
+	}
+	found := map[string]bool{}
+	for _, model := range megaBYVideoModels {
+		name, _ := model["name"].(string)
+		note, wanted := expectedNotes[name]
+		if !wanted {
+			continue
+		}
+		if model["channel"] != "MegaBY" || model["protocol"] != "megaby_video" {
+			t.Fatalf("unexpected %s routing: %#v", name, model)
+		}
+		parameters, ok := model["parameters"].(map[string]any)
+		if !ok || parameters["note"] != note {
+			t.Fatalf("unexpected %s display note: %#v", name, model["parameters"])
+		}
+		found[name] = true
+	}
+	for name := range expectedNotes {
+		if !found[name] {
+			t.Fatalf("MegaBY model %s is missing", name)
+		}
+	}
+}
