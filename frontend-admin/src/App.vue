@@ -57,14 +57,14 @@ const CANVAS_APP_URL = import.meta.env.DEV ? '/canvas' : '/canvas'
 
             <div class="px-6 pt-3 pb-1.5 text-[11px] font-extrabold text-base-content/30 uppercase tracking-wider">节点类型</div>
             <router-link
-              v-for="nt in ['text', 'image', 'video', 'table', 'full_image', 'asset', 'director', 'agent', 'workflow']" :key="nt"
+              v-for="nt in ['text', 'image', 'video', 'table', 'full_image', 'asset', 'director', 'agent', 'workflow', 'shotlist']" :key="nt"
               :to="`/admin/nodes/${nt}`"
               class="flex items-center gap-2 px-5 py-2 text-[12px] font-semibold rounded-lg mx-2.5 ml-6 hover:bg-base-200/50 hover:text-base-content transition-all duration-200 relative group text-base-content/55"
               active-class="bg-primary/5 text-primary font-semibold hover:bg-primary/5!"
             >
               <span class="absolute left-0 top-2 bottom-2 w-0.75 bg-primary rounded-r opacity-0 group-[.router-link-active]:opacity-100 transition-opacity" />
               <span class="w-1.25 h-1.25 rounded-full bg-base-content/20 group-[.router-link-active]:bg-primary shrink-0 transition-colors" />
-              {{ { text: '文本节点', image: '图片节点', video: '视频节点', table: '剧本节点', full_image: '全图节点', asset: '资产节点', director: '导演台节点', agent: '智能体节点', workflow: '工作流节点' }[nt] }}
+              {{ { text: '文本节点', image: '图片节点', video: '视频节点', table: '剧本节点', full_image: '全图节点', asset: '资产节点', director: '导演台节点', agent: '智能体节点', workflow: '工作流节点', shotlist: '分镜台节点' }[nt] }}
             </router-link>
 
             <router-link

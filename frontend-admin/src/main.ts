@@ -68,6 +68,11 @@ const routes = [
     meta: { title: '导演台节点' },
   },
   {
+    path: '/admin/nodes/shotlist',
+    component: () => import('./pages/ShotlistNodeConfig.vue'),
+    meta: { title: '分镜台节点' },
+  },
+  {
     path: '/admin/logs',
     component: () => import('./pages/Logs.vue'),
     meta: { title: '日志' },

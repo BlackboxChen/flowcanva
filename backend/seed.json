@@ -56,7 +56,7 @@
          { "key": "anime", "label": "动画番剧", "prompt": "整体风格走二维动画番剧质感，色彩鲜明，动作节奏夸张有弹性。" }
        ],
        "models": [
-         { "name": "deepseek-flash", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768, "supports_vision": true } },
+         { "name": "deepseek-flash", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } },
          { "name": "deepseek-v4-pro", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } },
          { "name": "deepseek-v3", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } },
          { "name": "claude-opus-4-7", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } }
