@@ -36,6 +36,12 @@ export interface NodeConfig {
   updated_at: string
 }
 
+export interface NodeRole {
+  key: string
+  label: string
+  prompt: string
+}
+
 export interface LogEntry {
   id: string
   level: string

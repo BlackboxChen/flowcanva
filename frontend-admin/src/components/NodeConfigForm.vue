@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, reactive } from 'vue'
+import RolesEditor from './RolesEditor.vue'
+import type { NodeRole } from '../types'
 
 interface Props {
   nodeType: string
   title: string
+  /** 为 true 时额外渲染角色模板库，供分镜台等带 roles 的节点使用。 */
+  showRoles?: boolean
 }
 
 const props = defineProps<Props>()
@@ -46,6 +50,7 @@ const form = ref<FormData>({
 })
 
 const extraModels = ref<ModelEntry[]>([])
+const roles = ref<NodeRole[]>([])
 const loading = ref(false)
 const saved = ref(false)
 const showAddModel = ref(false)
@@ -77,6 +82,7 @@ async function loadConfig() {
     } catch {}
     const ec = parseExtraConfig(data.extra_config || '{}')
     extraModels.value = Array.isArray(ec.models) ? ec.models : []
+    roles.value = Array.isArray(ec.roles) ? ec.roles : []
   } catch (e) {
     console.error(e)
   }
@@ -93,6 +99,8 @@ async function saveConfig() {
     })
     const ec = parseExtraConfig(form.value.extra_config || '{}')
     ec.models = extraModels.value
+    // 仅在启用角色编辑器时接管 roles，避免影响 image/video 等无角色节点。
+    if (props.showRoles) ec.roles = roles.value
     const extraConfigStr = JSON.stringify(ec)
     await fetch(`/api/admin/node-configs/${props.nodeType}`, {
       method: 'PUT',
@@ -108,6 +116,8 @@ async function saveConfig() {
         extra_config: extraConfigStr,
       }),
     })
+    // 回写文本框，避免 JSON 区与上方可视化编辑区显示不一致。
+    form.value.extra_config = extraConfigStr
     saved.value = true
   } catch (e) {
     console.error(e)
@@ -363,6 +373,9 @@ watch(() => props.nodeType, loadConfig)
           </label>
         </div>
       </div>
+
+      <!-- 角色模板库（仅分镜台等带 roles 的节点） -->
+      <RolesEditor v-if="showRoles" v-model="roles" @change="saveConfig" />
 
       <!-- 扩展配置 -->
       <div class="card bg-base-100 border border-base-200/80 shadow-sm rounded-2xl overflow-hidden">
