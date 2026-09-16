@@ -15,6 +15,9 @@ type ShotlistContent struct {
 	Segments []ShotlistSegment `json:"segments"`
 	Ledger   []ShotlistLedger  `json:"ledger"`
 	Notes    string            `json:"notes,omitempty"`
+	// Spawned 记录已落地到画布的产物节点 id（键：script / plan）。
+	// 工作段提示词节点不走这里，用 Segment.PromptNode。
+	Spawned map[string]string `json:"spawned,omitempty"`
 }
 
 // ShotlistDuration 记录目标时长与忠实估算的对比结果。

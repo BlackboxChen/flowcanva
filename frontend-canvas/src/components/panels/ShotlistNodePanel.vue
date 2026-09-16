@@ -3,7 +3,10 @@ import { ref, computed, watch } from 'vue'
 import type { Node, Asset } from '../../types'
 import { useNodeConfigs } from '../../composables/useNodeConfigs'
 import { useShotlistRunner, type PanelInput } from '../../composables/useShotlistRunner'
-import { SHOTLIST_STATE_LABELS, stateAtLeast, type ShotlistValidation } from '../../types/shotlist'
+import {
+  SHOTLIST_STATE_LABELS, stateAtLeast,
+  type ShotlistValidation, type ShotlistSpawnRequest,
+} from '../../types/shotlist'
 import GateCard from '../shotlist/GateCard.vue'
 import ScriptLockList from '../shotlist/ScriptLockList.vue'
 import AssetMappingList from '../shotlist/AssetMappingList.vue'
@@ -20,6 +23,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'save', content: string): void
   (e: 'remove-connected-edge', edgeId: string): void
+  (e: 'spawn-node', req: ShotlistSpawnRequest): void
 }>()
 
 const { getModels, getModelConfig, getRoles, loadNodeConfigs } = useNodeConfigs()
@@ -34,19 +38,26 @@ const runner = useShotlistRunner({
   getInputs: () => props.nodeInputs ?? [],
   save: content => emit('save', content),
   resolveModel: () => ({ name: selectedModel.value, config: getModelConfig('shotlist', selectedModel.value) }),
+  spawn: req => emit('spawn-node', req),
 })
 
 const {
   content, loading, currentStep, error, progress, state,
   load, persist, loadSteps, confirmGate,
   extractScriptText, collectAssetCandidates,
-  runLlmStep, runAllPrompts, revalidate, exportMarkdown,
+  runLlmStep, runAllPrompts, revalidate, exportMarkdown, spawnToCanvas,
 } = runner
 
 const roles = computed(() => getRoles('shotlist'))
 const candidates = computed(() => collectAssetCandidates())
 const hasScriptSource = computed(() => Boolean(extractScriptText().trim()))
 const stateLabel = computed(() => SHOTLIST_STATE_LABELS[state.value] || state.value)
+const hasLockList = computed(() =>
+  content.value.script.EV.length > 0
+  || content.value.script.DLG.length > 0
+  || content.value.script.LOCK.length > 0,
+)
+const hasPrompt = computed(() => content.value.segments.some(s => s.prompt.trim().length > 0))
 
 const styleHint = computed(() => {
   const role = roles.value.find(r => r.key === selectedRole.value)
@@ -185,6 +196,9 @@ function updateScript(patch: { EV?: any; DLG?: any; LOCK?: any }) {
               :disabled="loading || !hasScriptSource" @click.stop="doLockScript">生成</button>
             <button v-if="stepStates[0] === 'ready'" class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-100"
               @click.stop="confirmGate('SCRIPT_LOCKED')">锁定</button>
+            <button class="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
+              :disabled="loading || !hasLockList" title="把清单落地成画布上的表格节点"
+              @click.stop="spawnToCanvas('script')">落地表格</button>
           </template>
           <ScriptLockList v-if="content.script.EV.length || content.script.DLG.length || content.script.LOCK.length"
             :ev="content.script.EV" :dlg="content.script.DLG" :lock="content.script.LOCK" @update="updateScript" />
@@ -240,6 +254,9 @@ function updateScript(patch: { EV?: any; DLG?: any; LOCK?: any }) {
               :disabled="loading" @click.stop="doPlan">生成</button>
             <button v-if="stepStates[4] === 'ready' && content.segments.length" class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-100"
               @click.stop="confirmGate('PLAN_CONFIRMED')">确认规划</button>
+            <button class="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
+              :disabled="loading || content.segments.length === 0" title="把文字分镜表落地成画布上的表格节点"
+              @click.stop="spawnToCanvas('plan')">落地分镜表</button>
           </template>
           <SegmentPlanTable :segments="content.segments" :ledger="content.ledger" :duration="content.duration"
             @update="s => persist({ segments: s })" />
@@ -253,6 +270,9 @@ function updateScript(patch: { EV?: any; DLG?: any; LOCK?: any }) {
               :disabled="loading || content.segments.length === 0" @click.stop="doPrompts">生成全部</button>
             <button class="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
               :disabled="loading || content.segments.length === 0" @click.stop="doValidate">校验</button>
+            <button class="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
+              :disabled="loading || !hasPrompt" title="每段提示词落地成一个文本节点，可复制给视频节点"
+              @click.stop="spawnToCanvas('prompts')">落地提示词</button>
           </template>
           <div v-if="validation.errors.length || validation.warnings.length" class="mb-1.5 text-[10px]">
             <span class="text-red-300">{{ validation.errors.length }} 个错误</span>

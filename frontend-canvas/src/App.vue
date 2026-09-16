@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import InfiniteCanvas from './components/InfiniteCanvas.vue'
 import LeftToolbar from './components/LeftToolbar.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
@@ -14,7 +14,9 @@ import { useHistory } from './composables/useHistory'
 import { useAssets } from './composables/useAssets'
 import { useNodeConfigs } from './composables/useNodeConfigs'
 import { uploadAsset } from './api'
+import { mergeSpawnMapping } from './composables/useShotlistSpawn'
 import type { Node as CanvasNode } from './types'
+import type { ShotlistSpawnRequest } from './types/shotlist'
 
 const consoleURL = import.meta.env.DEV ? '/' : '/'
 
@@ -412,6 +414,63 @@ async function handleCreateAssetFromScreenshot(imageUrl: string, name: string) {
   }
 }
 
+// 产物落地：主控节点（分镜台等）请求把产物变成画布上的真实节点。
+// 已落地过的产物原地更新、沿原本地 id，否则下游对它的引用会失配。
+const SPAWN_SIZES: Record<string, { w: number; h: number }> = {
+  text: { w: 480, h: 340 },
+  table: { w: 960, h: 540 },
+}
+
+async function handleSpawnNode(req: ShotlistSpawnRequest) {
+  const anchor = nodes.value.find(n => n.id === req.anchorNodeId)
+  if (!anchor) return
+
+  const GAP = 24
+  const startX = anchor.x + anchor.width + 80
+
+  // 同一列（锚点右侧）已经落地过的节点，用来决定这次从哪一行往下排。
+  // 否则每次落地都从 anchor.y 开始，多类产物会互相压叠。
+  const column = nodes.value.filter(n => n.x >= startX - 1 && n.x <= startX + 1200)
+  const columnBottom = column.reduce((max, n) => Math.max(max, n.y + n.height), anchor.y)
+  let cursorY = column.length ? columnBottom + GAP : anchor.y
+
+  const mapping: Record<string, string> = {}
+
+  // 一次用户操作只记一次历史，避免逐个节点 push 把撤销栈灌满。
+  pushHistory()
+
+  for (const item of req.items) {
+    const size = SPAWN_SIZES[item.type] ?? { w: 480, h: 340 }
+
+    const existing = item.existingNodeId
+      ? nodes.value.find(n => n.id === item.existingNodeId)
+      : undefined
+    if (existing) {
+      await updateNodeContent(existing.id, item.content)
+      mapping[item.key] = existing.id
+      continue
+    }
+
+    const node = await addNode(item.type as any, startX + size.w / 2, cursorY + size.h / 2)
+    if (!node) continue
+    await updateNodeContent(node.id, item.content)
+    await resizeNode(node.id, size.w, size.h, startX, cursorY)
+    await addEdge(anchor.id, node.id)
+    mapping[item.key] = node.id
+    cursorY += size.h + GAP
+  }
+
+  // 把新节点 id 写回锚点节点，下次再落地就是原地更新。
+  const merged = mergeSpawnMapping(anchor.content || '', mapping)
+  if (merged) await updateNodeContent(anchor.id, merged)
+
+  // addNode 会把选中切到新节点，导致分镜台面板卸载、读到旧内容。
+  // 先清空再选回锚点，强制面板重新加载刚写回的 content。
+  selectNode(null)
+  await nextTick()
+  selectNode(anchor.id)
+}
+
 // 宫格分镜: 切图→生成资产节点网格排列
 async function handleGridSplit(data: { cols: number; rows: number; urls: string[] }) {
   const sid = selectedNodeId.value
@@ -682,6 +741,7 @@ async function handleSavePanel(content: string) {
       @remove-asset="handleRemoveAsset"
       @create-asset-from-screenshot="handleCreateAssetFromScreenshot"
       @grid-split="handleGridSplit"
+      @spawn-node="handleSpawnNode"
       @focus-node="handleFocusNode"
     />
 

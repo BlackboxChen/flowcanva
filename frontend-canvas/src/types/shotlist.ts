@@ -104,9 +104,34 @@ export interface ShotlistContent {
   segments: ShotlistSegment[]
   ledger: ShotlistLedger[]
   notes: string
+  /**
+   * 已落地到画布的产物节点 id，键为产物键（`script` / `plan`）。
+   * 工作段提示词节点不走这里，用 segment.prompt_node_id（与方案文档一致）。
+   * 存 id 是为了「再点一次原地更新」而不是重复新建。
+   */
+  spawned?: Record<string, string>
   _loading?: boolean
   _step?: string
   _error?: string
+}
+
+// ─── 产物落地（分镜台 → 画布节点） ──────────────────────────────────
+
+/** 分镜台请求画布创建/更新一个产物节点。 */
+export interface ShotlistSpawnItem {
+  /** 回写用的键：`script` / `plan` / 工作段 id。 */
+  key: string
+  type: 'text' | 'table'
+  /** 节点 content 原文（table 为 JSON 字符串，text 为纯文本）。 */
+  content: string
+  /** 已落地过的节点 id；存在则原地更新，不新建。 */
+  existingNodeId?: string
+}
+
+export interface ShotlistSpawnRequest {
+  /** 以哪个节点为锚点定位新节点，同时作为连线起点。 */
+  anchorNodeId: string
+  items: ShotlistSpawnItem[]
 }
 
 export interface ShotlistStepInfo {
@@ -164,6 +189,7 @@ export function emptyShotlistContent(): ShotlistContent {
     segments: [],
     ledger: [],
     notes: '',
+    spawned: {},
   }
 }
 
@@ -184,6 +210,7 @@ export function parseShotlistContent(raw: string): ShotlistContent {
       segments: Array.isArray(parsed.segments) ? parsed.segments : [],
       ledger: Array.isArray(parsed.ledger) ? parsed.ledger : [],
       gates: parsed.gates && typeof parsed.gates === 'object' ? parsed.gates : {},
+      spawned: parsed.spawned && typeof parsed.spawned === 'object' ? parsed.spawned : {},
     }
   } catch {
     return base

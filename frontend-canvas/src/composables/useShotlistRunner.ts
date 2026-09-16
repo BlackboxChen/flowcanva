@@ -2,8 +2,11 @@ import { ref, computed } from 'vue'
 import type { Node } from '../types'
 import {
   parseShotlistContent, emptyShotlistContent,
-  type ShotlistContent, type ShotlistSegment, type ShotlistStepInfo,
+  type ShotlistContent, type ShotlistSegment, type ShotlistStepInfo, type ShotlistSpawnRequest,
 } from '../types/shotlist'
+import {
+  buildScriptSpawnItem, buildPlanSpawnItem, buildPromptSpawnItems,
+} from './useShotlistSpawn'
 import { runShotlistStep, validateShotlist, exportShotlist, fetchShotlistSteps } from '../api'
 import type { ModelInfo } from './useNodeConfigs'
 
@@ -23,11 +26,16 @@ export interface AssetCandidate {
   url: string
 }
 
+/** 可落地到画布的产物种类。 */
+export type SpawnKind = 'script' | 'plan' | 'prompts'
+
 interface RunnerOptions {
   getNode: () => Node | null
   getInputs: () => PanelInput[]
   save: (content: string) => void
   resolveModel: () => { name: string; config: ModelInfo | null }
+  /** 请求画布创建产物节点；创建完成后会回调 onSpawned。 */
+  spawn: (req: ShotlistSpawnRequest) => void
 }
 
 /**
@@ -274,11 +282,45 @@ export function useShotlistRunner(opts: RunnerOptions) {
     }
   }
 
+  // ─── 产物落地 ────────────────────────────────────────────────────
+
+  /** 按产物种类取出待落地的节点载荷。 */
+  function buildSpawnItems(kind: SpawnKind) {
+    const c = content.value
+    if (kind === 'script') {
+      const item = buildScriptSpawnItem(c)
+      return item ? [item] : []
+    }
+    if (kind === 'plan') {
+      const item = buildPlanSpawnItem(c)
+      return item ? [item] : []
+    }
+    return buildPromptSpawnItems(c)
+  }
+
+  /**
+   * 把产物落地成画布上的真实节点并连线。
+   * 已落地过的产物会原地更新（沿原本地 id），不会重复新建。
+   * 落地后由画布把节点 id 写回本节点 content，面板重新加载即可看到。
+   */
+  function spawnToCanvas(kind: SpawnKind): boolean {
+    const node = opts.getNode()
+    if (!node) return false
+    const items = buildSpawnItems(kind)
+    if (!items.length) {
+      error.value = kind === 'prompts' ? '还没有生成任何提示词' : '还没有可落地的产物'
+      return false
+    }
+    error.value = ''
+    opts.spawn({ anchorNodeId: node.id, items })
+    return true
+  }
+
   return {
     content, steps, loading, currentStep, error, progress, state,
     load, persist, loadSteps, confirmGate,
     extractScriptText, scriptSourceNodeId, collectAssetCandidates,
-    runLlmStep, runAllPrompts, revalidate, exportMarkdown,
+    runLlmStep, runAllPrompts, revalidate, exportMarkdown, spawnToCanvas,
   }
 }
 

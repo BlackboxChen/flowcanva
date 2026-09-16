@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick } from 'vue'
 import type { Node, Edge, ViewportState } from '../types'
+import type { ShotlistSpawnRequest } from '../types/shotlist'
 import CanvasNode from './CanvasNode.vue'
 import TextNodePanel from './panels/TextNodePanel.vue'
 import ImageNodePanel from './panels/ImageNodePanel.vue'
@@ -58,6 +59,7 @@ const emit = defineEmits<{
   (e: 'remove-asset', id: string): void
   (e: 'create-asset-from-screenshot', imageUrl: string, name: string): void
   (e: 'grid-split', data: { cols: number; rows: number; urls: string[] }): void
+  (e: 'spawn-node', req: ShotlistSpawnRequest): void
   (e: 'focus-node', id: string): void
 }>()
 
@@ -509,10 +511,6 @@ function closeConnectMenu() {
 const showScriptEditor = ref(false)
 const showDirectorEditor = ref(false)
 
-function onPanelSave(content: string) {
-  emit('save-panel', content)
-}
-
 function onNodeDoubleClick(id: string) {
   emit('select', id)
   emit('focus-node', id)
@@ -618,11 +616,12 @@ function onNodeDoubleClick(id: string) {
         :panel-style="panelStyle"
         :node-inputs="nodeInputs[selectedNode?.id ?? ''] ?? []"
         :assets="assets"
-        @save="onPanelSave"
+        @save="(content: string) => selectedNode && emit('save-panel-for-node', selectedNode.id, content)"
         @remove-connected-edge="(edgeId: string) => emit('remove-connected-edge', edgeId)"
         @update-asset="(id: string, data: any) => emit('update-asset', id, data)"
         @remove-asset="(id: string) => emit('remove-asset', id)"
         @create-asset-node="(imageUrl: string, name: string) => emit('create-asset-from-screenshot', imageUrl, name)"
+        @spawn-node="(req: ShotlistSpawnRequest) => emit('spawn-node', req)"
       />
 
       <!-- 图片任务组件常驻：切换节点时不中断请求，结果按固定 node ID 回写。 -->
