@@ -160,6 +160,9 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 	if err := ensureMegaBYVideoModels(db, log); err != nil {
 		return err
 	}
+	if err := ensureDeepSeekModel(db, log); err != nil {
+		return err
+	}
 	var orderedVideoConfig string
 	if err := db.QueryRow(`SELECT extra_config FROM node_configs WHERE node_type='video'`).Scan(&orderedVideoConfig); err != nil {
 		return err

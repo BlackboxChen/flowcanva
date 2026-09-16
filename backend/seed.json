@@ -15,6 +15,7 @@
           { "key": "writer", "label": "写作", "prompt": "你是一位专业内容创作者，请根据用户要求创作高质量的文本内容。" }
         ],
         "models": [
+          { "name": "deepseek-flash", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768, "supports_vision": true } },
           { "name": "deepseek-v4-pro", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768 } },
           { "name": "deepseek-v3", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768 } },
           { "name": "claude-opus-4-7", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768, "supports_vision": true } }
@@ -36,6 +37,7 @@
           { "key": "writer", "label": "写作", "prompt": "你是一位专业内容创作者，请根据用户要求创作高质量的文本内容。" }
         ],
         "models": [
+          { "name": "deepseek-flash", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768, "supports_vision": true } },
           { "name": "deepseek-v4-pro", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768 } },
           { "name": "deepseek-v3", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768 } },
           { "name": "claude-opus-4-7", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.7, "max_tokens": 32768, "supports_vision": true } }
@@ -54,6 +56,7 @@
          { "key": "anime", "label": "动画番剧", "prompt": "整体风格走二维动画番剧质感，色彩鲜明，动作节奏夸张有弹性。" }
        ],
        "models": [
+         { "name": "deepseek-flash", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768, "supports_vision": true } },
          { "name": "deepseek-v4-pro", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } },
          { "name": "deepseek-v3", "channel": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } },
          { "name": "claude-opus-4-7", "channel": "NXFL", "base_url": "https://api.nxfl.cc/v1", "api_key": "", "parameters": { "temperature": 0.4, "max_tokens": 32768 } }

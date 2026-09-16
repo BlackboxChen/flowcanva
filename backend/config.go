@@ -27,6 +27,8 @@ type Config struct {
 	GeekNowBaseURL      string
 	GeekNowAPIKey       string
 	GeekNowVideoAPIKey  string
+	DeepSeekBaseURL     string
+	DeepSeekAPIKey      string
 	OSSAccessKeyID      string
 	OSSAccessKeySecret  string
 	OSSBucket           string
@@ -58,6 +60,8 @@ func loadConfig() Config {
 		GeekNowBaseURL:      strings.TrimRight(os.Getenv("GEEKNOW_BASE_URL"), "/"),
 		GeekNowAPIKey:       os.Getenv("GEEKNOW_API_KEY"),
 		GeekNowVideoAPIKey:  os.Getenv("GEEKNOW_VIDEO_API_KEY"),
+		DeepSeekBaseURL:     strings.TrimRight(os.Getenv("DEEPSEEK_BASE_URL"), "/"),
+		DeepSeekAPIKey:      os.Getenv("DEEPSEEK_API_KEY"),
 		OSSAccessKeyID:      os.Getenv("OSS_ACCESS_KEY_ID"),
 		OSSAccessKeySecret:  os.Getenv("OSS_ACCESS_KEY_SECRET"),
 		OSSBucket:           os.Getenv("OSS_BUCKET"),
