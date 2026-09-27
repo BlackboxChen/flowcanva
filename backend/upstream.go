@@ -15,7 +15,7 @@ func (h *Handler) resolveVideoUpstream(req VideoGenRequest) (string, string, err
 		if strings.TrimSpace(req.APIKey) != "" {
 			baseURL := strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
 			if baseURL == "" {
-				baseURL = "https://www.geeknow.top/v1"
+				baseURL = "https://geeknow.ai/v1"
 			}
 			return baseURL, req.APIKey, nil
 		}
