@@ -49,6 +49,7 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 		api.POST("/upload-image-host", h.UploadToImageHost)
 
 		api.POST("/comfyui/execute", h.ExecuteComfyUI)
+		api.GET("/comfyui/capabilities", h.ComfyUIWorkflowCapabilities)
 		api.GET("/comfyui/result/:prompt_id", h.GetComfyUIResult)
 		api.GET("/comfyui/proxy-view", h.ProxyComfyUIImage)
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, onUnmounted } from 'vue'
 import type { Node } from '../../types'
+import { useWorkflowApproval } from '../../composables/useWorkflowApproval'
+import { useWorkflowReferences, type WorkflowVariable } from '../../composables/useWorkflowReferences'
 
 const props = defineProps<{
   node: Node | null
@@ -10,12 +12,12 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ (e: 'save', content: string): void }>()
 
-interface Variable { name: string; value: string; type: 'image' | 'video' | 'audio' | 'text' }
-
 const serverUrl = ref('http://localhost:8188')
 const workflowJson = ref('')
 const name = ref('')
-const variables = ref<Variable[]>([])
+const variables = ref<WorkflowVariable[]>([])
+const approvalFingerprint = computed(() => JSON.stringify({ workflow: workflowJson.value, variables: variables.value, inputs: props.nodeInputs }))
+const { approvalRequired, keyframeApproved, loadApproval, approvalState } = useWorkflowApproval(approvalFingerprint)
 const outputVarName = ref('')
 const outputType = ref<'image'|'video'|'audio'|'text'>('text')
 const outputVars = ref<string[]>([])
@@ -26,6 +28,7 @@ const fullscreen = ref(false)
 const newVarName = ref('')
 const newVarValue = ref('')
 const runningId = ref<string | null>(null)
+const lastPromptId = ref('')
 
 // 自动补全状态
 const showAutocomplete = ref(false)
@@ -39,6 +42,7 @@ function stopExecution() { isRunning.value = false; runningId.value = null }
 onUnmounted(() => { runningId.value = null })
 
 async function pollResults(id: string) {
+  isRunning.value = true
   runningId.value = id
   const start = Date.now()
   const poll = async () => {
@@ -46,39 +50,43 @@ async function pollResults(id: string) {
     try {
       const res = await fetch(`/api/comfyui/result/${id}?server_url=${encodeURIComponent(serverUrl.value)}`)
       const d = await res.json()
+      if (!res.ok || d.error) { errorMsg.value = d.error || '读取任务失败'; isRunning.value = false; runningId.value = null; return }
       if (d.outputs?.length) {
         outputs.value = d.outputs.map((o: any, i: number) => {
           const kind = o.kind || 'image'
-          const type = kind === 'text' ? 'text' : kind === 'gif' ? 'video' : outputType.value
+          const type = kind === 'text' ? 'text' : kind === 'gif' || /\.(mp4|webm|mov)(?:[?&]|$)/i.test(o.filename || o.url || '') ? 'video' : outputType.value
           return { name: `输出${d.outputs.length > 1 ? i + 1 : ''}`, value: o.url || o.value, type }
         })
         isRunning.value = false; runningId.value = null; save()
         return
       }
-      if (Date.now() - start > 120000) { errorMsg.value = '超时'; isRunning.value = false; runningId.value = null; return }
+      if (Date.now() - start > 30 * 60 * 1000) { errorMsg.value = '等待任务超过30分钟，可稍后查询服务器历史'; isRunning.value = false; runningId.value = null; return }
     } catch { /* retry */ }
     setTimeout(poll, 3000)
   }
   setTimeout(poll, 3000)
 }
-function reset() { serverUrl.value = 'http://localhost:8188'; workflowJson.value = ''; name.value = ''; variables.value = []; outputVars.value = ['输出']; outputs.value = [] }
+function reset() { serverUrl.value = 'http://localhost:8188'; workflowJson.value = ''; name.value = ''; variables.value = []; outputVars.value = ['输出']; outputs.value = []; outputType.value = 'text'; lastPromptId.value = ''; loadApproval({}) }
 watch(() => props.node?.id, loadContent, { immediate: true })
 
-function save() { emit('save', JSON.stringify({ serverUrl: serverUrl.value, workflowJson: workflowJson.value, name: name.value, variables: variables.value, outputVars: outputVars.value, outputs: outputs.value })) }
+function save() { emit('save', JSON.stringify({ displayName: name.value, serverUrl: serverUrl.value, workflowJson: workflowJson.value, name: name.value, variables: variables.value, outputType: outputType.value, outputVars: outputVars.value, outputs: outputs.value, lastPromptId: lastPromptId.value, ...approvalState() })) }
 function addVar() { const n = newVarName.value.trim(); if (!n) return; variables.value.push({ name: n, value: newVarValue.value, type: 'text' }); newVarName.value = ''; newVarValue.value = ''; save() }
 function removeVar(i: number) { variables.value.splice(i, 1); save() }
-function onVarChange() { save() }
 
 async function execute() {
+  if (isRunning.value) return
+  if (approvalRequired.value && !keyframeApproved.value) { errorMsg.value = '请先检查并勾选确认关键帧，再执行视频'; return }
   errorMsg.value = ''; isRunning.value = true; save()
   try {
-    let wfStr = workflowJson.value
-    for (const v of variables.value) wfStr = wfStr.replace(new RegExp(`\\{\\{${v.name}\\}\\}`, 'g'), v.value)
-    const wf = JSON.parse(wfStr)
-    const res = await fetch('/api/comfyui/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ server_url: serverUrl.value, workflow_json: wf }) })
+    const wf = JSON.parse(workflowJson.value)
+    if (variables.value.length || approvalRequired.value) {
+      const capability = await fetch('/api/comfyui/capabilities')
+      if (!capability.ok || !(await capability.json()).workflow_variables) throw new Error('工作流后端更新尚未启用，请重启本地后端后再执行；不会提交生成任务。')
+    }
+    const res = await fetch('/api/comfyui/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ server_url: serverUrl.value, workflow_json: wf, variables: Object.fromEntries(variables.value.map(v => [v.name, v.value])), image_variables: variables.value.filter(v => v.type === 'image').map(v => v.name), approval_required: approvalRequired.value, keyframe_approved: keyframeApproved.value }) })
     const data = await res.json()
     if (!res.ok) { errorMsg.value = data.error || '失败'; isRunning.value = false; return }
-    pollResults(data.prompt_id)
+    lastPromptId.value = data.prompt_id; save(); pollResults(data.prompt_id)
   } catch (e: any) { errorMsg.value = e.message || '请求失败'; isRunning.value = false }
 }
 
@@ -93,14 +101,14 @@ function loadContent() {
     variables.value = d.variables || []
     outputVars.value = d.outputVars?.length ? d.outputVars : ['输出']
     outputs.value = d.outputs || []
+    outputType.value = d.outputType || 'text'
+    lastPromptId.value = d.lastPromptId || ''
+    loadApproval(d)
   } catch { reset() }
 }
 
 // 已连接的媒体资源(图片/视频/音频)供变量下拉选择
-const connectedMedia = computed(() => {
-  const inputs = props.nodeInputs || []
-  return inputs.filter(ni => ni.data?.url).map(ni => ({ url: ni.data.url, label: ni.sourceNodeType === 'image' ? '图片' : ni.sourceNodeType === 'video' ? '视频' : '连线' }))
-})
+const { connectedMedia, onVarChange } = useWorkflowReferences(computed(() => props.nodeInputs || []), variables, save)
 
 // 过滤后的补全变量列表
 const filteredVars = computed(() => {
@@ -254,12 +262,14 @@ function onJsonKeydown(e: KeyboardEvent) {
           <option v-for="ni in connectedMedia" :key="ni.url" :value="ni.url">{{ ni.label }}</option>
         </select>
       </template>
-      <input v-else v-model="v.value" @input="onVarChange()" class="flex-1 h-5 text-[9px] bg-white/5 border border-white/10 rounded px-1 text-white/60 outline-none" />
+      <textarea v-else v-model="v.value" @input="onVarChange()" rows="3" class="flex-1 text-[10px] bg-white/5 border border-white/10 rounded p-1 text-white/70 outline-none resize-y" />
     </div>
     <div class="flex gap-1">
-      <button class="flex-1 h-6 text-[10px] rounded bg-cyan-500/20 text-cyan-400 disabled:opacity-30" :disabled="!workflowJson" @click="execute">{{ isRunning ? '执行中...' : '▶ 执行' }}</button>
+      <button v-if="lastPromptId && !isRunning" class="h-6 px-2 text-[10px] rounded bg-white/10 text-white/60" @click="pollResults(lastPromptId)">查询上次任务</button>
+      <button class="flex-1 h-6 text-[10px] rounded bg-cyan-500/20 text-cyan-400 disabled:opacity-30" :disabled="!workflowJson || isRunning" @click="execute">{{ isRunning ? '执行中...' : '▶ 执行' }}</button>
       <button v-if="isRunning" class="h-6 px-2 text-[10px] rounded bg-red-500/20 text-red-400" @click="stopExecution">取消</button>
     </div>
+    <label v-if="approvalRequired" class="flex items-center gap-2 text-[10px] text-amber-300"><input v-model="keyframeApproved" type="checkbox" @change="save()" />我已检查并确认当前关键帧；更换参考图后需重新确认</label>
     <div v-if="errorMsg" :class="errorMsg.startsWith('✅') ? 'text-green-400 text-[9px]' : 'text-red-400 text-[9px]'">{{ errorMsg }}</div>
   </div>
 
@@ -267,6 +277,7 @@ function onJsonKeydown(e: KeyboardEvent) {
     <div v-if="fullscreen" class="fixed inset-0 z-[10001] bg-neutral-950 flex flex-col" @keydown.escape="fullscreen = false">
       <div class="flex items-center justify-between px-3 py-1.5 border-b border-white/10">
         <div class="flex items-center gap-2">
+          <label v-if="approvalRequired" class="text-[10px] text-amber-300"><input v-model="keyframeApproved" type="checkbox" @change="save()" /> 已确认当前关键帧</label>
           <input v-model="name" @change="save()" class="text-white/80 text-sm bg-transparent border-none outline-none w-32" />
           <input v-model="serverUrl" @change="save()" class="h-6 w-44 text-[10px] bg-white/5 border border-white/10 rounded px-2 text-white/60 outline-none" />
         </div>

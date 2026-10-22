@@ -102,6 +102,18 @@ func replaceComfyValue(value any, values map[string]any) any {
 		if replacement, ok := values[strings.Trim(current, "{}")]; ok && strings.HasPrefix(current, "{{") && strings.HasSuffix(current, "}}") {
 			return replacement
 		}
+		// TimelineDirector stores a JSON document inside timeline_data. Replace
+		// its values structurally so quotes/newlines in prompts remain valid.
+		trimmed := strings.TrimSpace(current)
+		if strings.Contains(current, "{{") && (strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[")) {
+			var embedded any
+			if json.Unmarshal([]byte(current), &embedded) == nil {
+				encoded, err := json.Marshal(replaceComfyValue(embedded, values))
+				if err == nil {
+					return string(encoded)
+				}
+			}
+		}
 		for key, replacement := range values {
 			current = strings.ReplaceAll(current, "{{"+key+"}}", fmt.Sprint(replacement))
 		}
@@ -287,11 +299,11 @@ func comfyVideoDimensions(ratio, resolution string) (int, int) {
 	}
 	parts := strings.Split(ratio, ":")
 	if len(parts) != 2 {
-		return longEdge, int(float64(longEdge) * 9 / 16 / 32) * 32
+		return longEdge, int(float64(longEdge)*9/16/32) * 32
 	}
 	var rw, rh int
 	if _, err := fmt.Sscanf(ratio, "%d:%d", &rw, &rh); err != nil || rw <= 0 || rh <= 0 {
-		return longEdge, int(float64(longEdge) * 9 / 16 / 32) * 32
+		return longEdge, int(float64(longEdge)*9/16/32) * 32
 	}
 	bestW, bestH, bestArea := 0, 0, 0
 	for w := 32; w <= longEdge; w += 32 {

@@ -12,8 +12,12 @@ import (
 )
 
 type comfyExecuteRequest struct {
-	ServerURL    string          `json:"server_url"`
-	WorkflowJSON json.RawMessage `json:"workflow_json"`
+	ServerURL        string          `json:"server_url"`
+	WorkflowJSON     json.RawMessage `json:"workflow_json"`
+	Variables        map[string]any  `json:"variables"`
+	ImageVariables   []string        `json:"image_variables"`
+	ApprovalRequired bool            `json:"approval_required"`
+	KeyframeApproved bool            `json:"keyframe_approved"`
 }
 
 type comfyPromptResponse struct {
@@ -34,10 +38,19 @@ func (h *Handler) ExecuteComfyUI(c *gin.Context) {
 	if req.ServerURL == "" {
 		req.ServerURL = "http://localhost:8188"
 	}
+	if req.ApprovalRequired && !req.KeyframeApproved {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请先确认关键帧，再执行视频工作流"})
+		return
+	}
 
 	// Remove leading "api/" from workflow if it's a full API workflow
 	var workflowJSON json.RawMessage
-	workflowJSON = req.WorkflowJSON
+	var resolveErr error
+	workflowJSON, resolveErr = resolveWorkflowVariables(c, req.ServerURL, req.WorkflowJSON, req.Variables, req.ImageVariables)
+	if resolveErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": resolveErr.Error()})
+		return
+	}
 
 	// POST to ComfyUI prompt endpoint
 	body := map[string]interface{}{
@@ -100,6 +113,10 @@ func (h *Handler) GetComfyUIResult(c *gin.Context) {
 	outputs := []map[string]string{}
 	if promptData, ok := historyData[promptID]; ok {
 		if dataMap, ok := promptData.(map[string]interface{}); ok {
+			if status, ok := dataMap["status"].(map[string]interface{}); ok && status["status_str"] == "error" {
+				c.JSON(http.StatusOK, gin.H{"error": "ComfyUI 任务执行失败，请查看服务器执行日志"})
+				return
+			}
 			if outputsData, ok := dataMap["outputs"]; ok {
 				if outputsMap, ok := outputsData.(map[string]interface{}); ok {
 					for nodeID, nodeOutput := range outputsMap {
@@ -113,10 +130,10 @@ func (h *Handler) GetComfyUIResult(c *gin.Context) {
 											subfolder, _ := imgMap["subfolder"].(string)
 											imgType, _ := imgMap["type"].(string)
 											outputs = append(outputs, map[string]string{
-												"url":       fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=%s", serverURL, filename, subfolder, imgType),
-												"node_id":   nodeID,
-												"filename":  filename,
-												"kind":      "image",
+												"url":      fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=%s", serverURL, filename, subfolder, imgType),
+												"node_id":  nodeID,
+												"filename": filename,
+												"kind":     "image",
 											})
 										}
 									}
@@ -143,10 +160,10 @@ func (h *Handler) GetComfyUIResult(c *gin.Context) {
 											subfolder, _ := gifMap["subfolder"].(string)
 											format, _ := gifMap["format"].(string)
 											outputs = append(outputs, map[string]string{
-												"url":       fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=output&format=%s", serverURL, filename, subfolder, format),
-												"node_id":   nodeID,
-												"filename":  filename,
-												"kind":      "gif",
+												"url":      fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=output&format=%s", serverURL, filename, subfolder, format),
+												"node_id":  nodeID,
+												"filename": filename,
+												"kind":     "gif",
 											})
 										}
 									}
