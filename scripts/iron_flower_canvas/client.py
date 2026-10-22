@@ -65,7 +65,7 @@ class CanvasClient:
 
 
 def workflow(name, graph, variables, output_url='', output_type='image', approval=False):
-    return {'displayName': name, 'name': name, 'serverUrl': 'http://10.88.0.3:8179', 'workflowJson': json.dumps(graph, ensure_ascii=False), 'variables': variables, 'outputType': output_type, 'outputVars': ['生成结果'], 'outputs': [{'name': '已导入的现有产物', 'type': output_type, 'value': output_url}] if output_url else [], 'approvalRequired': approval, 'approvedFingerprint': ''}
+    return {'displayName': name, 'name': name, 'serverUrl': 'http://10.88.0.3:8179', 'workflowJson': json.dumps(graph, ensure_ascii=False), 'variables': variables, 'outputType': output_type, 'outputVars': ['生成结果'], 'outputs': [{'name': '已导入的现有产物', 'type': output_type, 'value': output_url}] if output_url else [], 'approvalRequired': approval, 'approvedFingerprint': '', 'seedMode': 'random'}
 
 
 def image_variable(name, url, source_id):

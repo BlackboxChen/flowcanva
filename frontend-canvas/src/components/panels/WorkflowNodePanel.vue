@@ -3,6 +3,8 @@ import { ref, watch, computed, nextTick, onUnmounted } from 'vue'
 import type { Node } from '../../types'
 import { useWorkflowApproval } from '../../composables/useWorkflowApproval'
 import { useWorkflowReferences, type WorkflowVariable } from '../../composables/useWorkflowReferences'
+import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
+import WorkflowSeedControls from '../WorkflowSeedControls.vue'
 
 const props = defineProps<{
   node: Node | null
@@ -16,7 +18,8 @@ const serverUrl = ref('http://localhost:8188')
 const workflowJson = ref('')
 const name = ref('')
 const variables = ref<WorkflowVariable[]>([])
-const approvalFingerprint = computed(() => JSON.stringify({ workflow: workflowJson.value, variables: variables.value, inputs: props.nodeInputs }))
+const { seedMode, fixedSeed, lastSeed, loadSeed, seedState, prepareSeed } = useWorkflowSeed()
+const approvalFingerprint = computed(() => JSON.stringify({ workflow: workflowJson.value, variables: variables.value, inputs: props.nodeInputs, seedMode: seedMode.value, fixedSeed: fixedSeed.value }))
 const { approvalRequired, keyframeApproved, loadApproval, approvalState } = useWorkflowApproval(approvalFingerprint)
 const outputVarName = ref('')
 const outputType = ref<'image'|'video'|'audio'|'text'>('text')
@@ -66,10 +69,10 @@ async function pollResults(id: string) {
   }
   setTimeout(poll, 3000)
 }
-function reset() { serverUrl.value = 'http://localhost:8188'; workflowJson.value = ''; name.value = ''; variables.value = []; outputVars.value = ['输出']; outputs.value = []; outputType.value = 'text'; lastPromptId.value = ''; loadApproval({}) }
+function reset() { serverUrl.value = 'http://localhost:8188'; workflowJson.value = ''; name.value = ''; variables.value = []; outputVars.value = ['输出']; outputs.value = []; outputType.value = 'text'; lastPromptId.value = ''; loadApproval({}); loadSeed({}) }
 watch(() => props.node?.id, loadContent, { immediate: true })
 
-function save() { emit('save', JSON.stringify({ displayName: name.value, serverUrl: serverUrl.value, workflowJson: workflowJson.value, name: name.value, variables: variables.value, outputType: outputType.value, outputVars: outputVars.value, outputs: outputs.value, lastPromptId: lastPromptId.value, ...approvalState() })) }
+function save() { emit('save', JSON.stringify({ displayName: name.value, serverUrl: serverUrl.value, workflowJson: workflowJson.value, name: name.value, variables: variables.value, outputType: outputType.value, outputVars: outputVars.value, outputs: outputs.value, lastPromptId: lastPromptId.value, ...approvalState(), ...seedState() })) }
 function addVar() { const n = newVarName.value.trim(); if (!n) return; variables.value.push({ name: n, value: newVarValue.value, type: 'text' }); newVarName.value = ''; newVarValue.value = ''; save() }
 function removeVar(i: number) { variables.value.splice(i, 1); save() }
 
@@ -78,7 +81,8 @@ async function execute() {
   if (approvalRequired.value && !keyframeApproved.value) { errorMsg.value = '请先检查并勾选确认关键帧，再执行视频'; return }
   errorMsg.value = ''; isRunning.value = true; save()
   try {
-    const wf = JSON.parse(workflowJson.value)
+    const prepared = prepareSeed(JSON.parse(workflowJson.value))
+    const wf = prepared.workflow
     if (variables.value.length || approvalRequired.value) {
       const capability = await fetch('/api/comfyui/capabilities')
       if (!capability.ok || !(await capability.json()).workflow_variables) throw new Error('工作流后端更新尚未启用，请重启本地后端后再执行；不会提交生成任务。')
@@ -86,7 +90,8 @@ async function execute() {
     const res = await fetch('/api/comfyui/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ server_url: serverUrl.value, workflow_json: wf, variables: Object.fromEntries(variables.value.map(v => [v.name, v.value])), image_variables: variables.value.filter(v => v.type === 'image').map(v => v.name), approval_required: approvalRequired.value, keyframe_approved: keyframeApproved.value }) })
     const data = await res.json()
     if (!res.ok) { errorMsg.value = data.error || '失败'; isRunning.value = false; return }
-    lastPromptId.value = data.prompt_id; save(); pollResults(data.prompt_id)
+    if (!data.prompt_id) throw new Error('服务器没有返回任务编号')
+    lastSeed.value = prepared.seed; lastPromptId.value = data.prompt_id; save(); pollResults(data.prompt_id)
   } catch (e: any) { errorMsg.value = e.message || '请求失败'; isRunning.value = false }
 }
 
@@ -103,6 +108,7 @@ function loadContent() {
     outputs.value = d.outputs || []
     outputType.value = d.outputType || 'text'
     lastPromptId.value = d.lastPromptId || ''
+    loadSeed(d)
     loadApproval(d)
   } catch { reset() }
 }
@@ -250,6 +256,7 @@ function onJsonKeydown(e: KeyboardEvent) {
       <button class="h-5 px-1.5 text-[10px] rounded bg-white/5 text-white/40 hover:text-white" @click="pasteJson">📋</button>
     </div>
     <input v-model="serverUrl" @change="save()" placeholder="http://localhost:8188" class="w-full h-5 text-[10px] bg-white/5 border border-white/10 rounded px-1.5 text-white/50 outline-none" />
+    <WorkflowSeedControls v-model:mode="seedMode" v-model:fixed-seed="fixedSeed" :last-seed="lastSeed" @change="save()" />
     <div class="flex items-center gap-1 text-[9px] text-white/25">
       <span>{{ variables.length }} 入</span><span>·</span><span>{{ outputVars.length }} 出</span><span class="text-white/15 ml-auto cursor-pointer hover:text-white/40" @click="fullscreen=true">高级 ⛶</span>
     </div>
@@ -291,6 +298,7 @@ function onJsonKeydown(e: KeyboardEvent) {
       <div class="flex-1 min-h-0 flex">
         <!-- Left: input (yellow) -->
         <div class="w-60 border-r border-white/10 p-2 overflow-y-auto shrink-0 space-y-1">
+          <WorkflowSeedControls v-model:mode="seedMode" v-model:fixed-seed="fixedSeed" :last-seed="lastSeed" @change="save()" />
           <div class="text-yellow-300/70 text-[9px] uppercase font-medium mb-1">输入变量 <span class="text-white/20">({{ variables.length }})</span></div>
           <div v-for="(v, i) in variables" :key="i" class="flex items-center gap-0.5 group border border-yellow-500/10 rounded px-1 py-0.5 hover:border-yellow-500/20">
             <span class="text-yellow-300/70 text-[9px] w-12 truncate font-mono">{{ v.name }}</span>
