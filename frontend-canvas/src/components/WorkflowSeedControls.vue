@@ -25,6 +25,7 @@ function changeFixed(event: Event) {
         <option value="workflow">工作流原值</option>
       </select>
     </label>
+    <div v-if="mode === 'random'" class="text-cyan-300/80">随机模式已启用：提交时替换 seed，不使用 JSON 原种子。</div>
     <input v-if="mode === 'fixed'" :value="fixedSeed" aria-label="固定种子" inputmode="numeric" class="w-full rounded bg-neutral-800 px-2 py-1" @change="changeFixed" />
     <div v-if="lastSeed !== null" class="break-all text-cyan-300/80">上次提交种子：{{ lastSeed }}</div>
     <div v-else class="text-white/40">新任务提交后记录实际种子；查询任务不会换种子。</div>

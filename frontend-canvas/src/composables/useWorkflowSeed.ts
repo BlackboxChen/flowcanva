@@ -4,10 +4,10 @@ export type SeedMode = 'workflow' | 'random' | 'fixed'
 const seedKeys = new Set(['seed', 'noise_seed', 'random_seed'])
 
 // Rewrite seed literals only: arrays can be ComfyUI node links and must stay intact.
-function mapSeeds(value: any, seed: number): any {
-  if (Array.isArray(value)) return value.map(item => mapSeeds(item, seed))
+function mapSeeds(value: any, seed: number, placeholdersOnly = false): any {
+  if (Array.isArray(value)) return value.map(item => mapSeeds(item, seed, placeholdersOnly))
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-    key, seedKeys.has(key) && (typeof item === 'number' || typeof item === 'string') ? seed : mapSeeds(item, seed),
+    key, seedKeys.has(key) && (typeof item === 'number' || typeof item === 'string') && (!placeholdersOnly || item === '{{random_seed}}') ? seed : mapSeeds(item, seed, placeholdersOnly),
   ]))
   return value
 }
@@ -27,7 +27,7 @@ export function useWorkflowSeed() {
   const fixedSeed = ref('0')
   const lastSeed = ref<number | null>(null)
   function loadSeed(data: Record<string, any>) {
-    seedMode.value = ['random', 'fixed'].includes(data.seedMode) ? data.seedMode : 'workflow'
+    seedMode.value = ['random', 'fixed', 'workflow'].includes(data.seedMode) ? data.seedMode : String(data.workflowJson || '').includes('{{random_seed}}') ? 'random' : 'workflow'
     let fallback = 0
     try { fallback = firstSeed(JSON.parse(data.workflowJson || '{}')) ?? 0 } catch { /* invalid JSON is handled on execute */ }
     fixedSeed.value = String(data.fixedSeed ?? fallback)
@@ -35,7 +35,7 @@ export function useWorkflowSeed() {
   }
   function seedState() { return { seedMode: seedMode.value, fixedSeed: fixedSeed.value, lastSeed: lastSeed.value } }
   function prepareSeed(graph: any) {
-    if (seedMode.value === 'workflow') return { workflow: graph, seed: null }
+    if (seedMode.value === 'workflow') return { workflow: mapSeeds(graph, Number(fixedSeed.value), true), seed: null }
     let seed = Number(fixedSeed.value)
     if (seedMode.value === 'random') {
       // A positive 31-bit integer is exact in JSON and compatible with both samplers.

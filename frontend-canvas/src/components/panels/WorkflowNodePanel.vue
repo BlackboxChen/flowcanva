@@ -108,7 +108,7 @@ function loadContent() {
     outputs.value = d.outputs || []
     outputType.value = d.outputType || 'text'
     lastPromptId.value = d.lastPromptId || ''
-    loadSeed(d)
+    loadSeed({ ...JSON.parse(props.node.config || '{}'), ...d })
     loadApproval(d)
   } catch { reset() }
 }

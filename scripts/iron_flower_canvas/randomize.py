@@ -26,6 +26,14 @@ def find_seed(value):
     return None
 
 
+def random_seed_template(value):
+    if isinstance(value, dict):
+        return {key: '{{random_seed}}' if key in SEED_KEYS and isinstance(item, (int, str)) else random_seed_template(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [random_seed_template(item) for item in value]
+    return value
+
+
 def update(base, canvas_id):
     endpoint = base.rstrip('/') + '/api/canvases/' + canvas_id
     response = requests.get(endpoint, timeout=30)
@@ -39,17 +47,22 @@ def update(base, canvas_id):
         if node['node_type'] != 'workflow':
             continue
         data = json.loads(node['content'])
-        seed = find_seed(json.loads(data.get('workflowJson', '{}')))
-        if seed is None:
+        graph = json.loads(data.get('workflowJson', '{}'))
+        seed = find_seed(graph)
+        template = random_seed_template(graph)
+        if seed is None and '{{random_seed}}' not in json.dumps(template):
             continue
-        if data.get('seedMode') == 'random':
+        config = json.loads(node.get('config') or '{}')
+        if data.get('seedMode') == 'random' and graph == template and config.get('seedMode') == 'random':
             continue
         data['seedMode'] = 'random'
-        data.setdefault('fixedSeed', str(seed))
+        data.setdefault('fixedSeed', str(seed if seed is not None else config.get('fixedSeed', 0)))
+        data['workflowJson'] = json.dumps(template, ensure_ascii=False)
+        config.update(seedMode='random', fixedSeed=data['fixedSeed'])
         # The recorded mode is part of the video approval fingerprint.
         if data.get('approvalRequired'):
             data['approvedFingerprint'] = ''
-        result = requests.put(endpoint + '/nodes/' + node['id'], json={'content': json.dumps(data, ensure_ascii=False)}, timeout=30)
+        result = requests.put(endpoint + '/nodes/' + node['id'], json={'content': json.dumps(data, ensure_ascii=False), 'config': json.dumps(config, ensure_ascii=False)}, timeout=30)
         result.raise_for_status()
         changed += 1
         LOG.info('node_randomized name=%s original_seed=%s', data.get('name'), seed)

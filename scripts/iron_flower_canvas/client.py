@@ -3,6 +3,7 @@ import json
 import logging
 from pathlib import Path
 import requests
+from randomize import find_seed, random_seed_template
 
 LOG = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class CanvasClient:
 
 
 def workflow(name, graph, variables, output_url='', output_type='image', approval=False):
-    return {'displayName': name, 'name': name, 'serverUrl': 'http://10.88.0.3:8179', 'workflowJson': json.dumps(graph, ensure_ascii=False), 'variables': variables, 'outputType': output_type, 'outputVars': ['生成结果'], 'outputs': [{'name': '已导入的现有产物', 'type': output_type, 'value': output_url}] if output_url else [], 'approvalRequired': approval, 'approvedFingerprint': '', 'seedMode': 'random'}
+    return {'displayName': name, 'name': name, 'serverUrl': 'http://10.88.0.3:8179', 'workflowJson': json.dumps(random_seed_template(graph), ensure_ascii=False), 'variables': variables, 'outputType': output_type, 'outputVars': ['生成结果'], 'outputs': [{'name': '已导入的现有产物', 'type': output_type, 'value': output_url}] if output_url else [], 'approvalRequired': approval, 'approvedFingerprint': '', 'seedMode': 'random', 'fixedSeed': str(find_seed(graph) or 0)}
 
 
 def image_variable(name, url, source_id):
