@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -139,6 +140,12 @@ func pollComfyUIHistory(ctx context.Context, client *http.Client, serverURL, pro
 				Subfolder string `json:"subfolder"`
 				Type      string `json:"type"`
 			} `json:"images"`
+			Videos []struct {
+				Filename  string `json:"filename"`
+				Subfolder string `json:"subfolder"`
+				Type      string `json:"type"`
+				Format    string `json:"format"`
+			} `json:"videos"`
 			Gifs []struct {
 				Filename  string `json:"filename"`
 				Subfolder string `json:"subfolder"`
@@ -163,6 +170,13 @@ func pollComfyUIHistory(ctx context.Context, client *http.Client, serverURL, pro
 				kind = "video"
 			}
 			results = append(results, comfyGenerationOutput{URL: serverURL + "/view?" + query.Encode(), Kind: kind})
+		}
+		for _, video := range node.Videos {
+			query := url.Values{"filename": {video.Filename}, "subfolder": {video.Subfolder}, "type": {video.Type}}
+			if video.Format != "" {
+				query.Set("format", video.Format)
+			}
+			results = append(results, comfyGenerationOutput{URL: serverURL + "/view?" + query.Encode(), Kind: "video"})
 		}
 		for _, video := range node.Gifs {
 			query := url.Values{"filename": {video.Filename}, "subfolder": {video.Subfolder}, "type": {"output"}, "format": {video.Format}}
@@ -218,6 +232,9 @@ func (h *Handler) generateComfyUIVideo(c *gin.Context, req VideoGenRequest) {
 	if req.ImageURL != "" {
 		imageRefs = append([]string{req.ImageURL}, imageRefs...)
 	}
+	width, height := comfyVideoDimensions(req.Ratio, req.Resolution)
+	frames := comfyVideoFrames(req.Seconds)
+	duration := comfyVideoDuration(req.Seconds)
 	uploadedRefs, err := uploadComfyImageReferences(c, req.BaseURL, imageRefs)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
@@ -225,8 +242,12 @@ func (h *Handler) generateComfyUIVideo(c *gin.Context, req VideoGenRequest) {
 	}
 	outputs, err := h.generateWithComfyUI(c, req.BaseURL, req.WorkflowJSON, req.Prompt, map[string]any{
 		"seconds":    req.Seconds,
+		"duration":   duration,
 		"ratio":      req.Ratio,
 		"resolution": req.Resolution,
+		"width":      width,
+		"height":     height,
+		"frames":     frames,
 		"count":      req.Count,
 		"image":      firstComfyInput(uploadedRefs),
 		"images":     uploadedRefs,
@@ -255,6 +276,57 @@ func (h *Handler) generateComfyUIVideo(c *gin.Context, req VideoGenRequest) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"videos": videos})
+}
+
+func comfyVideoDimensions(ratio, resolution string) (int, int) {
+	longEdge := 768
+	if strings.Contains(strings.ToLower(resolution), "720") {
+		longEdge = 1280
+	} else if strings.Contains(strings.ToLower(resolution), "1080") {
+		longEdge = 1920
+	}
+	parts := strings.Split(ratio, ":")
+	if len(parts) != 2 {
+		return longEdge, int(float64(longEdge) * 9 / 16 / 32) * 32
+	}
+	var rw, rh int
+	if _, err := fmt.Sscanf(ratio, "%d:%d", &rw, &rh); err != nil || rw <= 0 || rh <= 0 {
+		return longEdge, int(float64(longEdge) * 9 / 16 / 32) * 32
+	}
+	bestW, bestH, bestArea := 0, 0, 0
+	for w := 32; w <= longEdge; w += 32 {
+		for h := 32; h <= longEdge; h += 32 {
+			if (rw >= rh && w < h) || (rw < rh && h < w) {
+				continue
+			}
+			error := math.Abs(float64(w*h*rh-rw*h*h)) / float64(rw*h*h)
+			area := w * h
+			if error <= 0.02 && area > bestArea {
+				bestW, bestH, bestArea = w, h, area
+			}
+		}
+	}
+	if bestW > 0 {
+		return bestW, bestH
+	}
+	return longEdge, longEdge
+}
+
+func comfyVideoFrames(seconds string) int {
+	frames := int(comfyVideoDuration(seconds)*24 + 0.5)
+	if frames <= 5 {
+		return 5
+	}
+	// MiniMax H3 expects frame counts on the 17k+5 temporal grid.
+	return ((frames - 5 + 16) / 17 * 17) + 5
+}
+
+func comfyVideoDuration(seconds string) float64 {
+	var duration float64
+	if _, err := fmt.Sscanf(seconds, "%f", &duration); err != nil || duration <= 0 {
+		return 5
+	}
+	return duration
 }
 
 func firstComfyInput(values []string) string {

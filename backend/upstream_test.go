@@ -31,6 +31,20 @@ func TestNormalizeZhengAPIBaseURLForVideo(t *testing.T) {
 	}
 }
 
+func TestComfyVideoDimensionsAndFrames(t *testing.T) {
+	w, h := comfyVideoDimensions("16:9", "480p")
+	if w != 736 || h != 416 {
+		t.Fatalf("unexpected 480p 16:9 dimensions: %dx%d", w, h)
+	}
+	w, h = comfyVideoDimensions("9:16", "720p")
+	if w != 704 || h != 1248 {
+		t.Fatalf("unexpected 720p 9:16 dimensions: %dx%d", w, h)
+	}
+	if got := comfyVideoFrames("5"); got != 124 {
+		t.Fatalf("unexpected H3 frame count for 5s: %d", got)
+	}
+}
+
 func TestUploadToImageHostReturnsDataURLWhenEnabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &Handler{cfg: Config{ZhengAPIUseDataURLs: true}}

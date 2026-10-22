@@ -37,10 +37,20 @@ func (h *Handler) ChatWithLLM(c *gin.Context) {
 		return
 	}
 
-	baseURL, apiKey, err := h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.openai.com/v1", true)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	var baseURL, apiKey string
+	if strings.EqualFold(strings.TrimSpace(req.Channel), "vllm") {
+		baseURL = strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
+		if baseURL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "vLLM 渠道需要填写 OpenAI 兼容 API 地址"})
+			return
+		}
+	} else {
+		var err error
+		baseURL, apiKey, err = h.resolveUpstream(req.BaseURL, req.APIKey, "https://api.openai.com/v1", true)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	if req.Stream {
@@ -65,7 +75,9 @@ func (h *Handler) normalChat(c *gin.Context, req ChatRequest, apiKey, baseURL st
 
 	httpReq, _ := http.NewRequest("POST", baseURL+"/chat/completions", bytes.NewReader(bodyBytes))
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 
 	resp, err := llmClient.Do(httpReq)
 	if err != nil {
@@ -100,7 +112,9 @@ func (h *Handler) streamChat(c *gin.Context, req ChatRequest, apiKey, baseURL st
 
 	httpReq, _ := http.NewRequest("POST", baseURL+"/chat/completions", bytes.NewReader(bodyBytes))
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 	httpReq.Header.Set("Accept", "text/event-stream")
 
 	resp, err := llmClient.Do(httpReq)

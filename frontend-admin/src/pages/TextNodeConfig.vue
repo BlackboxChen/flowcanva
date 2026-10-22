@@ -249,7 +249,7 @@ onMounted(load)
                   </label>
                   <label class="form-control w-full">
                     <div class="label py-0.5"><span class="label-text text-[10px] font-bold text-base-content/50">API 渠道</span></div>
-                    <input v-model="editModel.channel" type="text" class="input input-bordered input-sm w-full focus:ring-1 focus:ring-primary/10 text-xs" />
+                    <input v-model="editModel.channel" type="text" placeholder="vLLM（内网免密 OpenAI 兼容接口）" class="input input-bordered input-sm w-full focus:ring-1 focus:ring-primary/10 text-xs" />
                   </label>
                 </div>
                 <label class="form-control w-full">
@@ -301,7 +301,7 @@ onMounted(load)
               </label>
               <label class="form-control w-full">
                 <div class="label py-0.5"><span class="label-text text-[10px] font-bold text-base-content/50">API 渠道</span></div>
-                <input v-model="newModel.channel" type="text" placeholder="OpenAI" class="input input-bordered input-sm w-full focus:ring-1 focus:ring-primary/10 text-xs" />
+                <input v-model="newModel.channel" type="text" placeholder="OpenAI；免密内网接口填 vLLM" class="input input-bordered input-sm w-full focus:ring-1 focus:ring-primary/10 text-xs" />
               </label>
             </div>
             <label class="form-control w-full">
