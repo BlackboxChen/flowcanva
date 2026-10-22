@@ -21,6 +21,7 @@ interface ModelEntry {
   top_p: number
   max_tokens: number
   protocol?: string  // 图片节点专用: chat|local|openai-gen|openai-edit
+  workflow_json?: string
 }
 
 interface FormData {
@@ -55,8 +56,8 @@ const loading = ref(false)
 const saved = ref(false)
 const showAddModel = ref(false)
 const editingIndex = ref<number | null>(null)
-const newModel = reactive<ModelEntry>({ name: '', channel: '', base_url: '', api_key: '', temperature: 0.7, top_p: 1.0, max_tokens: 32768 })
-const editModel = reactive<ModelEntry>({ name: '', channel: '', base_url: '', api_key: '', temperature: 0.7, top_p: 1.0, max_tokens: 32768 })
+const newModel = reactive<ModelEntry>({ name: '', channel: '', base_url: '', api_key: '', temperature: 0.7, top_p: 1.0, max_tokens: 32768, workflow_json: '' })
+const editModel = reactive<ModelEntry>({ name: '', channel: '', base_url: '', api_key: '', temperature: 0.7, top_p: 1.0, max_tokens: 32768, workflow_json: '' })
 
 function parseExtraConfig(raw: string): Record<string, any> {
   try { return JSON.parse(raw) } catch { return {} }
@@ -137,6 +138,7 @@ function addModel() {
   newModel.temperature = 0.7
   newModel.top_p = 1.0
   newModel.max_tokens = 32768
+  newModel.workflow_json = ''
   showAddModel.value = false
   saveConfig()
 }
@@ -249,17 +251,19 @@ watch(() => props.nodeType, loadConfig)
                   <label class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">名称</span></div><input v-model="editModel.name" class="input input-bordered input-xs w-full text-xs font-mono" /></label>
                   <label class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">渠道</span></div><input v-model="editModel.channel" class="input input-bordered input-xs w-full text-xs" /></label>
                 </div>
-                <label class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">Base URL</span></div><input v-model="editModel.base_url" class="input input-bordered input-xs w-full text-xs font-mono" /></label>
+                <label class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">Base URL</span></div><input v-model="editModel.base_url" class="input input-bordered input-xs w-full text-xs font-mono" /><span v-if="editModel.protocol === 'comfyui'" class="text-[9px] text-base-content/35">内网 ComfyUI 地址，例如 http://192.168.1.20:8188</span></label>
                 <label class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">API Key</span></div><input v-model="editModel.api_key" type="password" class="input input-bordered input-xs w-full text-xs font-mono" /></label>
-                <label v-if="nodeType === 'image'" class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">协议</span></div>
+                <label v-if="nodeType === 'image' || nodeType === 'video'" class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">协议</span></div>
                   <select v-model="editModel.protocol" class="select select-xs select-bordered w-full text-xs font-bold">
                     <option value="">跟随默认</option>
-                    <option value="chat">Chat 生图 (Gemini)</option>
-                    <option value="local">本地协议</option>
-                    <option value="openai-gen">OpenAI 生图</option>
-                    <option value="openai-edit">OpenAI 改图</option>
+                    <template v-if="nodeType === 'image'"><option value="chat">Chat 生图 (Gemini)</option><option value="local">本地协议</option><option value="openai-gen">OpenAI 生图</option><option value="openai-edit">OpenAI 改图</option></template>
+                    <option value="comfyui">内网 ComfyUI 工作流</option>
+                    <option v-if="nodeType === 'video'" value="zhengapi_video">ZhengAPI 视频</option>
+                    <option v-if="nodeType === 'video'" value="geeknow_video">GeekNow 视频</option>
+                    <option v-if="nodeType === 'video'" value="megaby_video">MegaBY 视频</option>
                   </select>
                 </label>
+                <label v-if="editModel.protocol === 'comfyui'" class="form-control w-full"><div class="label py-0"><span class="label-text text-[9px] font-bold text-base-content/40">ComfyUI API 工作流 JSON</span></div><textarea v-model="editModel.workflow_json" rows="8" class="textarea textarea-bordered w-full font-mono text-[10px]" placeholder='{"3":{"class_type":"KSampler","inputs":{"seed":1}}}'></textarea><span class="text-[9px] text-base-content/35">变量：&#123;&#123;prompt&#125;&#125;、&#123;&#123;width&#125;&#125;、&#123;&#123;height&#125;&#125;、&#123;&#123;size&#125;&#125;、&#123;&#123;seconds&#125;&#125;、&#123;&#123;ratio&#125;&#125;、&#123;&#123;resolution&#125;&#125;、&#123;&#123;image&#125;&#125;、&#123;&#123;images&#125;&#125;、&#123;&#123;videos&#125;&#125;、&#123;&#123;audios&#125;&#125;。请从 ComfyUI 导出 API 格式 JSON。</span></label>
                 <div class="flex gap-2 justify-end pt-1">
                   <button class="btn btn-primary btn-xs px-3 rounded-lg font-bold" @click="saveEditModel">确认</button>
                   <button class="btn btn-ghost btn-xs px-3 rounded-lg font-bold" @click="cancelEditModel">取消</button>
@@ -271,7 +275,7 @@ watch(() => props.nodeType, loadConfig)
                   <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="text-xs font-extrabold text-base-content/85 truncate font-mono">{{ m.name }}</span>
                     <span class="badge badge-sm badge-ghost text-[9px] font-bold py-0 h-4.5 rounded-md px-1.5 opacity-60">{{ m.channel || '渠道未知' }}</span>
-                    <span v-if="nodeType === 'image' && m.protocol" class="badge badge-sm text-[9px] font-bold py-0 h-4.5 rounded-md px-1.5" :class="m.protocol === 'chat' ? 'bg-purple-500/15 text-purple-400 border-purple-500/20' : m.protocol === 'local' ? 'bg-info/15 text-info border-info/20' : m.protocol === 'openai-edit' ? 'bg-warning/15 text-warning border-warning/20' : 'bg-primary/15 text-primary border-primary/20'">{{ { chat: 'Chat生图', local: '本地', 'openai-gen': 'OAI生图', 'openai-edit': 'OAI改图' }[m.protocol] }}</span>
+                    <span v-if="m.protocol" class="badge badge-sm text-[9px] font-bold py-0 h-4.5 rounded-md px-1.5" :class="m.protocol === 'comfyui' ? 'bg-success/15 text-success border-success/20' : m.protocol === 'chat' ? 'bg-purple-500/15 text-purple-400 border-purple-500/20' : m.protocol === 'local' ? 'bg-info/15 text-info border-info/20' : m.protocol === 'openai-edit' ? 'bg-warning/15 text-warning border-warning/20' : 'bg-primary/15 text-primary border-primary/20'">{{ m.protocol === 'comfyui' ? 'ComfyUI' : ({ chat: 'Chat生图', local: '本地', 'openai-gen': 'OAI生图', 'openai-edit': 'OAI改图' } as Record<string, string>)[m.protocol] || m.protocol }}</span>
                   </div>
                   <span class="text-[10px] text-base-content/35 block truncate font-mono">{{ m.base_url || '使用通道默认地址' }}</span>
                 </div>
@@ -306,22 +310,25 @@ watch(() => props.nodeType, loadConfig)
             <label class="form-control w-full">
               <div class="label py-0.5"><span class="label-text text-[10px] font-bold text-base-content/50">Base URL</span></div>
               <input v-model="newModel.base_url" type="text" placeholder="https://api.openai.com" class="input input-bordered input-sm w-full focus:ring-1 focus:ring-primary/10 text-xs font-mono" />
+              <span v-if="newModel.protocol === 'comfyui'" class="text-[9px] text-base-content/35">内网 ComfyUI 地址，例如 http://192.168.1.20:8188</span>
             </label>
             <label class="form-control w-full">
               <div class="label py-0.5"><span class="label-text text-[10px] font-bold text-base-content/50">API Key</span></div>
               <input v-model="newModel.api_key" type="password" placeholder="sk-..." class="input input-bordered input-sm w-full focus:ring-1 focus:ring-primary/10 text-xs font-mono" />
             </label>
             <!-- 图片节点专用: 协议选择 -->
-            <label v-if="nodeType === 'image'" class="form-control w-full">
+            <label v-if="nodeType === 'image' || nodeType === 'video'" class="form-control w-full">
               <div class="label py-0.5"><span class="label-text text-[10px] font-bold text-base-content/50">调用协议</span></div>
               <select v-model="newModel.protocol" class="select select-sm select-bordered w-full focus:ring-1 focus:ring-primary/10 text-xs font-bold">
                 <option value="">跟随默认 (OpenAI 生图)</option>
-                <option value="chat">Chat 生图 (Gemini 对话式)</option>
-                <option value="local">本地协议 (chatgpt2api)</option>
-                <option value="openai-gen">OpenAI 生图 (t2i)</option>
-                <option value="openai-edit">OpenAI 改图 (img2img)</option>
+                <template v-if="nodeType === 'image'"><option value="chat">Chat 生图 (Gemini 对话式)</option><option value="local">本地协议 (chatgpt2api)</option><option value="openai-gen">OpenAI 生图 (t2i)</option><option value="openai-edit">OpenAI 改图 (img2img)</option></template>
+                <option value="comfyui">内网 ComfyUI 工作流</option>
+                <option v-if="nodeType === 'video'" value="zhengapi_video">ZhengAPI 视频</option>
+                <option v-if="nodeType === 'video'" value="geeknow_video">GeekNow 视频</option>
+                <option v-if="nodeType === 'video'" value="megaby_video">MegaBY 视频</option>
               </select>
             </label>
+            <label v-if="newModel.protocol === 'comfyui'" class="form-control w-full"><div class="label py-0.5"><span class="label-text text-[10px] font-bold text-base-content/50">ComfyUI API 工作流 JSON</span></div><textarea v-model="newModel.workflow_json" rows="8" class="textarea textarea-bordered w-full font-mono text-[10px]" placeholder='{"3":{"class_type":"KSampler","inputs":{"seed":1}}}'></textarea><span class="text-[9px] text-base-content/35">请从 ComfyUI 导出 API 格式 JSON。可用变量：&#123;&#123;prompt&#125;&#125;、&#123;&#123;width&#125;&#125;、&#123;&#123;height&#125;&#125;、&#123;&#123;size&#125;&#125;、&#123;&#123;seconds&#125;&#125;、&#123;&#123;ratio&#125;&#125;、&#123;&#123;resolution&#125;&#125;、&#123;&#123;image&#125;&#125;、&#123;&#123;images&#125;&#125;、&#123;&#123;videos&#125;&#125;、&#123;&#123;audios&#125;&#125;。</span></label>
             <div class="flex gap-2 pt-2 justify-end">
               <button class="btn btn-primary btn-xs px-3 rounded-lg font-bold" @click="addModel">保存并添加</button>
               <button class="btn btn-ghost btn-xs px-3 rounded-lg font-bold" @click="showAddModel = false">取消</button>

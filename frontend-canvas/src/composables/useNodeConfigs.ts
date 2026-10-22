@@ -8,6 +8,7 @@ export interface ModelInfo {
   api_key: string
   path: string
   protocol?: string
+  workflow_json?: string
   parameters: Record<string, any>
 }
 
@@ -24,6 +25,7 @@ interface ExtraModel {
   api_key?: string
   path?: string
   protocol?: string
+  workflow_json?: string
   parameters?: Record<string, any>
 }
 
@@ -93,6 +95,7 @@ export function useNodeConfigs() {
                 api_key: m.api_key || '',
                 path: m.path || '',
                 protocol: m.protocol || '',
+                workflow_json: m.workflow_json || '',
                 parameters: m.parameters || {},
               })
             }

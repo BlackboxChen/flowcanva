@@ -15,20 +15,21 @@ import (
 )
 
 type VideoGenRequest struct {
-	Model      string   `json:"model"`
-	Prompt     string   `json:"prompt"`
-	Seconds    string   `json:"seconds"`
-	Ratio      string   `json:"ratio"`
-	Resolution string   `json:"resolution"`
-	ImageURL   string   `json:"image_url,omitempty"`
-	ImageURLs  []string `json:"image_urls,omitempty"`
-	VideoURLs  []string `json:"video_urls,omitempty"`
-	AudioURLs  []string `json:"audio_urls,omitempty"`
-	Count      int      `json:"n"`
-	Channel    string   `json:"channel,omitempty"`
-	BaseURL    string   `json:"base_url,omitempty"`
-	APIKey     string   `json:"api_key,omitempty"`
-	Protocol   string   `json:"protocol,omitempty"`
+	Model        string   `json:"model"`
+	Prompt       string   `json:"prompt"`
+	Seconds      string   `json:"seconds"`
+	Ratio        string   `json:"ratio"`
+	Resolution   string   `json:"resolution"`
+	ImageURL     string   `json:"image_url,omitempty"`
+	ImageURLs    []string `json:"image_urls,omitempty"`
+	VideoURLs    []string `json:"video_urls,omitempty"`
+	AudioURLs    []string `json:"audio_urls,omitempty"`
+	Count        int      `json:"n"`
+	Channel      string   `json:"channel,omitempty"`
+	BaseURL      string   `json:"base_url,omitempty"`
+	APIKey       string   `json:"api_key,omitempty"`
+	Protocol     string   `json:"protocol,omitempty"`
+	WorkflowJSON string   `json:"workflow_json,omitempty"`
 }
 
 type VideoGenResponse struct {
@@ -44,6 +45,10 @@ func (h *Handler) GenerateVideo(c *gin.Context) {
 	var req VideoGenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Protocol == "comfyui" {
+		h.generateComfyUIVideo(c, req)
 		return
 	}
 

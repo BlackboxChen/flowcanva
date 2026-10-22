@@ -581,18 +581,22 @@ async function generate() {
       if (modelConfig.base_url) body.base_url = modelConfig.base_url
       if (modelConfig.api_key) body.api_key = modelConfig.api_key
       if (modelConfig.protocol) body.protocol = modelConfig.protocol
+      if (modelConfig.workflow_json) body.workflow_json = modelConfig.workflow_json
     }
     // 只用 images.value（已排序），过滤 image 类型用于上传图床，video/audio 直接传 URL
     const imgUrls = images.value.filter(i => i.mediaType === 'image').map(i => i.dataUrl).filter(Boolean)
     const vidRefs = images.value.filter(i => i.mediaType === 'video').map(i => i.dataUrl).filter(Boolean)
     const audRefs = images.value.filter(i => i.mediaType === 'audio').map(i => i.dataUrl).filter(Boolean)
     const protocol = String(modelConfig?.protocol || '').toLowerCase()
-    const requiresPublicImageURLs = protocol === 'megaby_video'
+    const requiresPublicImageURLs = protocol !== 'comfyui' && (protocol === 'megaby_video'
       || protocol === 'geeknow_video'
       || protocol === 'zhengapi_video'
-      || /^(?:megaby-|wan[-_]?3(?:\.0)?)/i.test(selectedModel.value)
+      || /^(?:megaby-|wan[-_]?3(?:\.0)?)/i.test(selectedModel.value))
     // MegaBY 等上游要求参考视频必须是公网可读的绝对 http/https URL；本地 /uploads 或 data: 地址先上传图床再提交。
-    if (vidRefs.length > 0) {
+    if (protocol === 'comfyui') {
+      if (vidRefs.length > 0) body.video_urls = vidRefs
+      if (audRefs.length > 0) body.audio_urls = audRefs
+    } else if (vidRefs.length > 0) {
       const publicVidRefs = await Promise.all(vidRefs.map(async url => {
         try { return await ensurePublicMediaURL(url, requiresPublicImageURLs, signal) } catch (error: any) {
           if (requiresPublicImageURLs) throw new Error(`参考视频上传公网图床失败：${error?.message || '未知错误'}`)
@@ -615,6 +619,10 @@ async function generate() {
     const forceImageHost = /wan[-_]?3(?:\.0)?/i.test(selectedModel.value)
     for (const url of imgUrls) {
       try {
+        if (protocol === 'comfyui') {
+          uploadedUrls.push(url)
+          continue
+        }
         uploadedUrls.push(url.startsWith('data:')
           ? await uploadToImageHost(url, true, signal)
           : await ensurePublicMediaURL(url, requiresPublicImageURLs || forceImageHost, signal))

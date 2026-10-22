@@ -604,6 +604,7 @@ async function generate() {
       if (modelConfig.api_key) body.api_key = modelConfig.api_key
       if (modelConfig.path) body.path = modelConfig.path
       if (modelConfig.protocol) body.protocol = modelConfig.protocol
+      if (modelConfig.workflow_json) body.workflow_json = modelConfig.workflow_json
     }
     // 传入连线参考图
     const refImages = referencesForRequest().filter(image => image.mediaType !== 'audio' && image.mediaType !== 'video').map(image => image.url)

@@ -162,6 +162,12 @@ flowcanva/
 - **Base URL**：API 端点地址
 - **参数**：temperature、max_tokens 等
 
+#### 内网 ComfyUI 生图 / 生视频
+
+在“图片节点配置”或“视频节点配置”中添加模型，将调用协议选为“内网 ComfyUI 工作流”，在 Base URL 中填入运行 FlowCanva 后端可访问的 ComfyUI 地址（例如 `http://192.168.1.20:8188`），并粘贴从 ComfyUI 导出的 **API 格式**工作流 JSON。API Key 可留空。保存后，在画布相应节点的模型列表中选择该模型即可。
+
+工作流 JSON 字符串可使用 `{{prompt}}`、`{{width}}`、`{{height}}`、`{{size}}`、`{{seconds}}`、`{{ratio}}`、`{{resolution}}`、`{{image}}`、`{{images}}`、`{{videos}}` 和 `{{audios}}` 占位符；尺寸、数量等占位符会替换成对应 JSON 值。ComfyUI 工作流需将结果输出为图片，或视频 / GIF 输出（例如 VHS 节点的 `gifs` 输出）。图片由 FlowCanva 代理显示，视频会缓存到本地 `uploads/`。
+
 ### 配置存储
 
 ```
