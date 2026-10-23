@@ -21,8 +21,9 @@ type comfyExecuteRequest struct {
 }
 
 type comfyPromptResponse struct {
-	PromptID string          `json:"prompt_id"`
-	Error    json.RawMessage `json:"error,omitempty"`
+	PromptID   string          `json:"prompt_id"`
+	Error      json.RawMessage `json:"error,omitempty"`
+	NodeErrors json.RawMessage `json:"node_errors,omitempty"`
 }
 
 type comfyResultRequest struct {
@@ -79,7 +80,7 @@ func (h *Handler) ExecuteComfyUI(c *gin.Context) {
 	}
 
 	if promptResp.Error != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": string(promptResp.Error)})
+		c.JSON(http.StatusBadGateway, gin.H{"error": string(promptResp.Error) + " node_errors: " + string(promptResp.NodeErrors)})
 		return
 	}
 

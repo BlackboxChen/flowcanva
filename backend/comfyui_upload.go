@@ -108,6 +108,18 @@ func readComfyImageSource(c *gin.Context, source string) ([]byte, string, error)
 		return nil, "", err
 	}
 	filename := path.Base(parsed.Path)
+	// ComfyUI /view serves the image named in the query, not a file named view.
+	if queryName := parsed.Query().Get("filename"); queryName != "" {
+		filename = path.Base(queryName)
+	}
+	if path.Ext(filename) == "" {
+		extensions, _ := mime.ExtensionsByType(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
+		if len(extensions) > 0 {
+			filename += extensions[0]
+		} else {
+			filename += ".png"
+		}
+	}
 	if filename == "." || filename == "/" || filename == "" {
 		filename = "reference.png"
 	}
