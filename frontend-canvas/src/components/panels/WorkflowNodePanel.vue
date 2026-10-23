@@ -4,6 +4,7 @@ import type { Node } from '../../types'
 import { useWorkflowApproval } from '../../composables/useWorkflowApproval'
 import { useWorkflowReferences, type WorkflowVariable } from '../../composables/useWorkflowReferences'
 import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
+import { normalizeH3Frames } from '../../composables/normalizeH3Frames'
 import WorkflowSeedControls from '../WorkflowSeedControls.vue'
 
 const props = defineProps<{
@@ -72,7 +73,7 @@ async function pollResults(id: string) {
 function reset() { serverUrl.value = 'http://localhost:8188'; workflowJson.value = ''; name.value = ''; variables.value = []; outputVars.value = ['输出']; outputs.value = []; outputType.value = 'text'; lastPromptId.value = ''; loadApproval({}); loadSeed({}) }
 watch(() => props.node?.id, loadContent, { immediate: true })
 
-function save() { emit('save', JSON.stringify({ displayName: name.value, serverUrl: serverUrl.value, workflowJson: workflowJson.value, name: name.value, variables: variables.value, outputType: outputType.value, outputVars: outputVars.value, outputs: outputs.value, lastPromptId: lastPromptId.value, ...approvalState(), ...seedState() })) }
+function save() { emit('save', JSON.stringify({ ...JSON.parse(props.node?.content || '{}'), displayName: name.value, serverUrl: serverUrl.value, workflowJson: workflowJson.value, name: name.value, variables: variables.value, outputType: outputType.value, outputVars: outputVars.value, outputs: outputs.value, lastPromptId: lastPromptId.value, ...approvalState(), ...seedState() })) }
 function addVar() { const n = newVarName.value.trim(); if (!n) return; variables.value.push({ name: n, value: newVarValue.value, type: 'text' }); newVarName.value = ''; newVarValue.value = ''; save() }
 function removeVar(i: number) { variables.value.splice(i, 1); save() }
 
@@ -81,7 +82,13 @@ async function execute() {
   if (approvalRequired.value && !keyframeApproved.value) { errorMsg.value = '请先检查并勾选确认关键帧，再执行视频'; return }
   errorMsg.value = ''; isRunning.value = true; save()
   try {
-    const prepared = prepareSeed(JSON.parse(workflowJson.value))
+    const graph = JSON.parse(workflowJson.value)
+    if (normalizeH3Frames(graph)) {
+      workflowJson.value = JSON.stringify(graph, null, 2)
+      save()
+      throw new Error('已补齐 H3 分段帧数并保存，请重新确认关键帧后执行；生成素材需逐镜裁尾。此次未提交任务。')
+    }
+    const prepared = prepareSeed(graph)
     const wf = prepared.workflow
     if (variables.value.length || approvalRequired.value) {
       const capability = await fetch('/api/comfyui/capabilities')
