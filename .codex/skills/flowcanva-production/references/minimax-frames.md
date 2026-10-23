@@ -11,3 +11,9 @@
 - 修改时间线会使既有确认失效，保留旧任务记录与输出，清除当前确认，重读核验后报告“帧数约束检查通过，未生成实测”。
 
 参考实现：https://github.com/Songssx/ComfyUI-MiniMaxH3-TimelineDirector/blob/main/minimax_h3_finite_segments.py 中 _prepare_timeline_segments。
+
+## 音频解码兼容
+
+本地服务器曾只在 ComfyUI-MiniMaxH3 原采样器中修复音频解码，TimelineDirector 的有限分段采样器直接调用 ComfyUI vae_decode_audio，未经过修复，可能产生 NaN 音频并在封装时报 avcodec_send_frame 错误。
+
+已部署的有限分段修复使用同目录 h3_finite_audio_decode.py，调用相邻 ComfyUI-MiniMaxH3/audio_decode_worker.py 在独立 CPU 进程中读取 FP32 音频 VAE；补丁源码在项目 scripts/h3_finite_audio_decode.py。明确检查 latent 与音频波形是否有限，不清零或静音替代错误。升级插件后检查导入是否保留；八实例需一致部署。修复测试为两段22帧、320×192，确认 H.264/AAC 32kHz 双声道封装完成，不代表长片语音内容和口型验收通过。
