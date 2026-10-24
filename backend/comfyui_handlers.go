@@ -115,7 +115,7 @@ func (h *Handler) GetComfyUIResult(c *gin.Context) {
 	if promptData, ok := historyData[promptID]; ok {
 		if dataMap, ok := promptData.(map[string]interface{}); ok {
 			if status, ok := dataMap["status"].(map[string]interface{}); ok && status["status_str"] == "error" {
-				c.JSON(http.StatusOK, gin.H{"error": "ComfyUI 任务执行失败，请查看服务器执行日志"})
+				c.JSON(http.StatusOK, gin.H{"error": comfyExecutionError(status)})
 				return
 			}
 			if outputsData, ok := dataMap["outputs"]; ok {
