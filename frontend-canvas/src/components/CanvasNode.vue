@@ -277,11 +277,18 @@ const nodeStyle = computed(() => {
 
 // 拖动 drag-move 事件的 rAF 合并句柄,降低父级边重算频率
 let dragMoveRaf = 0
+// Screen-pixel tolerance: small click jitter must never leave a hidden-panel drag offset.
+const DRAG_THRESHOLD_PX = 4
+let dragMoved = false
 
 function onPointerDown(e: PointerEvent) {
+  if (e.button !== 0 || !e.isPrimary) return
   e.stopPropagation()
   emit('select')
+  const target = e.target as Element
+  if (target.closest('button, input, select, textarea, video, audio, a, [contenteditable="true"]')) return
   dragging.value = true
+  dragMoved = false
   dragDx.value = 0
   dragDy.value = 0
   dragStart.value = {
@@ -325,6 +332,8 @@ function onPointerMove(e: PointerEvent) {
   }
 
   if (!dragging.value) return
+  if (!dragMoved && Math.hypot(e.clientX - dragStart.value.sx, e.clientY - dragStart.value.sy) < DRAG_THRESHOLD_PX) return
+  dragMoved = true
   const dx = (e.clientX - dragStart.value.sx) / props.zoom
   const dy = (e.clientY - dragStart.value.sy) / props.zoom
   // 本地偏移立即更新,节点跟手不延迟
@@ -342,7 +351,7 @@ function onPointerUp(e: PointerEvent) {
   if (resizing.value) {
     resizing.value = false
     const el = e.currentTarget as HTMLElement
-    el.releasePointerCapture(e.pointerId)
+    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
     emit('resize-end', {
       width: resizeValues.value.w,
       height: resizeValues.value.h,
@@ -357,9 +366,11 @@ function onPointerUp(e: PointerEvent) {
   // 清理可能挂起的 rAF,避免 drag-end 后再触发一次 drag-move
   if (dragMoveRaf) { cancelAnimationFrame(dragMoveRaf); dragMoveRaf = 0 }
   const el = e.currentTarget as HTMLElement
-  el.releasePointerCapture(e.pointerId)
+  if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
 
-  if (Math.abs(dragDx.value) > 1 || Math.abs(dragDy.value) > 1) {
+  // Once a drag starts, always finish it, even if the pointer returns to its origin.
+  // The parent must clear dragOffsets, which otherwise keeps the panel hidden.
+  if (dragMoved) {
     emit('drag-end', {
       x: props.node.x + dragDx.value,
       y: props.node.y + dragDy.value,
@@ -367,6 +378,7 @@ function onPointerUp(e: PointerEvent) {
   }
   dragDx.value = 0
   dragDy.value = 0
+  dragMoved = false
 }
 
 function onResizePointerDown(e: PointerEvent, dir: string) {
@@ -749,6 +761,9 @@ watch(() => props.node.content, () => nextTick(repairVideoWindowIfNeeded))
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
+    @lostpointercapture="onPointerUp"
+    @dragstart.prevent
   >
     <!-- 头部：图标 + 名称（悬浮，不在选中框内） -->
     <div class="flex items-center gap-1.5 px-3 pt-2 pb-2 select-none shrink-0">
