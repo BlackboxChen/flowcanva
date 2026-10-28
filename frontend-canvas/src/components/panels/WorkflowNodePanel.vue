@@ -6,6 +6,7 @@ import { useWorkflowReferences, type WorkflowVariable } from '../../composables/
 import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
 import { normalizeH3Frames } from '../../composables/normalizeH3Frames'
 import WorkflowSeedControls from '../WorkflowSeedControls.vue'
+import { persistWorkflowMedia, type WorkflowOutput } from '../../composables/persistWorkflowMedia'
 
 const props = defineProps<{
   node: Node | null
@@ -25,7 +26,7 @@ const { approvalRequired, keyframeApproved, loadApproval, approvalState } = useW
 const outputVarName = ref('')
 const outputType = ref<'image'|'video'|'audio'|'text'>('text')
 const outputVars = ref<string[]>([])
-const outputs = ref<{ name: string; value: string; type: 'image' | 'video' | 'audio' | 'text' }[]>([])
+const outputs = ref<WorkflowOutput[]>([])
 const isRunning = ref(false)
 const errorMsg = ref('')
 const fullscreen = ref(false)
@@ -46,6 +47,7 @@ function stopExecution() { isRunning.value = false; runningId.value = null }
 onUnmounted(() => { runningId.value = null })
 
 async function pollResults(id: string) {
+  const targetNodeId = props.node?.id
   isRunning.value = true
   runningId.value = id
   const start = Date.now()
@@ -54,13 +56,26 @@ async function pollResults(id: string) {
     try {
       const res = await fetch(`/api/comfyui/result/${id}?server_url=${encodeURIComponent(serverUrl.value)}`)
       const d = await res.json()
+      if (runningId.value !== id || props.node?.id !== targetNodeId) return
       if (!res.ok || d.error) { errorMsg.value = d.error || '读取任务失败'; isRunning.value = false; runningId.value = null; return }
       if (d.outputs?.length) {
-        outputs.value = d.outputs.map((o: any, i: number) => {
+        const generated = d.outputs.map((o: any, i: number) => {
           const kind = o.kind || 'image'
           const type = kind === 'text' ? 'text' : kind === 'gif' || /\.(mp4|webm|mov)(?:[?&]|$)/i.test(o.filename || o.url || '') ? 'video' : outputType.value
           return { name: `输出${d.outputs.length > 1 ? i + 1 : ''}`, value: o.url || o.value, type }
         })
+        errorMsg.value = '✅ 已生成，正在保存到本地…'
+        try {
+          const local = await persistWorkflowMedia(generated)
+          if (runningId.value !== id || props.node?.id !== targetNodeId) return
+          outputs.value = local
+          errorMsg.value = ''
+        } catch (error: any) {
+          if (runningId.value !== id || props.node?.id !== targetNodeId) return
+          errorMsg.value = `${error.message || '本地保存失败'}；保留原预览，可点击“查询上次任务”重试，无需重新生成。`
+          isRunning.value = false; runningId.value = null
+          return
+        }
         isRunning.value = false; runningId.value = null; save()
         return
       }
@@ -104,6 +119,7 @@ async function execute() {
 
 // 加载节点保存的内容到面板状态
 function loadContent() {
+  stopExecution()
   if (!props.node?.content) { reset(); return }
   try {
     const d = JSON.parse(props.node.content)
