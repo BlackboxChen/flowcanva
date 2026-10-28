@@ -18,6 +18,9 @@ type comfyExecuteRequest struct {
 	ImageVariables   []string        `json:"image_variables"`
 	ApprovalRequired bool            `json:"approval_required"`
 	KeyframeApproved bool            `json:"keyframe_approved"`
+	CanvasID         string          `json:"canvas_id"`
+	NodeID           string          `json:"node_id"`
+	Seed             *int64          `json:"seed"`
 }
 
 type comfyPromptResponse struct {
@@ -54,8 +57,14 @@ func (h *Handler) ExecuteComfyUI(c *gin.Context) {
 	}
 
 	// POST to ComfyUI prompt endpoint
+	job, jobErr := h.createWorkflowSubmission(req)
+	if jobErr != nil {
+		c.JSON(500, gin.H{"error": jobErr.Error()})
+		return
+	}
 	body := map[string]interface{}{
-		"prompt": workflowJSON,
+		"prompt":    workflowJSON,
+		"prompt_id": job.Prompt, "client_id": job.ID, "extra_data": map[string]string{"flowcanva_job_id": job.ID},
 	}
 	jsonBody, _ := json.Marshal(body)
 
@@ -66,121 +75,38 @@ func (h *Handler) ExecuteComfyUI(c *gin.Context) {
 		bytes.NewReader(jsonBody),
 	)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("无法连接ComfyUI: %v", err)})
+		h.setWorkflowSubmissionState(job, "submit_unknown", "提交响应未确认；后台只查询，不会重新提交")
+		c.JSON(http.StatusBadGateway, gin.H{"error": "提交响应未确认，后台正在核查，请勿重复生成", "job_id": job.ID, "prompt_id": job.Prompt})
 		return
 	}
 	defer resp.Body.Close()
 
 	var promptResp comfyPromptResponse
 	if err := json.NewDecoder(resp.Body).Decode(&promptResp); err != nil {
+		h.setWorkflowSubmissionState(job, "submit_unknown", "无法解析提交响应；请勿重复生成")
 		respBody, _ := io.ReadAll(resp.Body)
 		h.log.Error("comfyui execute parse error", "body", string(respBody))
 		c.JSON(http.StatusBadGateway, gin.H{"error": "无法解析ComfyUI响应"})
 		return
 	}
 
-	if promptResp.Error != nil {
+	if resp.StatusCode >= 400 || promptResp.Error != nil {
+		h.setWorkflowSubmissionState(job, "failed", string(promptResp.Error))
 		c.JSON(http.StatusBadGateway, gin.H{"error": string(promptResp.Error) + " node_errors: " + string(promptResp.NodeErrors)})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"prompt_id": promptResp.PromptID})
-}
-
-func (h *Handler) GetComfyUIResult(c *gin.Context) {
-	promptID := c.Param("prompt_id")
-	serverURL := c.Query("server_url")
-	if serverURL == "" {
-		serverURL = "http://localhost:8188"
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("%s/history/%s", serverURL, promptID))
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("无法连接ComfyUI: %v", err)})
+	if promptResp.PromptID == "" {
+		h.setWorkflowSubmissionState(job, "submit_unknown", "上游未返回任务编号，请勿重复生成")
+		c.JSON(502, gin.H{"error": "提交状态待确认，后台继续查询，请勿重复生成", "job_id": job.ID})
 		return
 	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	// Return raw response for frontend to parse
-	var historyData map[string]interface{}
-	if err := json.Unmarshal(body, &historyData); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "无法解析ComfyUI历史数据"})
+	if err := h.acceptWorkflowSubmission(job, promptResp.PromptID, req.Seed); err != nil {
+		h.log.Error("workflow submission accepted but binding failed", "job_id", job.ID, "error", err)
+		c.JSON(502, gin.H{"error": "上游已接受任务，记录更新失败，请勿重复生成", "job_id": job.ID})
 		return
 	}
-
-	// Extract outputs (images + text)
-	outputs := []map[string]string{}
-	if promptData, ok := historyData[promptID]; ok {
-		if dataMap, ok := promptData.(map[string]interface{}); ok {
-			if status, ok := dataMap["status"].(map[string]interface{}); ok && status["status_str"] == "error" {
-				c.JSON(http.StatusOK, gin.H{"error": comfyExecutionError(status)})
-				return
-			}
-			if outputsData, ok := dataMap["outputs"]; ok {
-				if outputsMap, ok := outputsData.(map[string]interface{}); ok {
-					for nodeID, nodeOutput := range outputsMap {
-						if nodeMap, ok := nodeOutput.(map[string]interface{}); ok {
-							// Images
-							if images, ok := nodeMap["images"]; ok {
-								if imgList, ok := images.([]interface{}); ok {
-									for _, img := range imgList {
-										if imgMap, ok := img.(map[string]interface{}); ok {
-											filename, _ := imgMap["filename"].(string)
-											subfolder, _ := imgMap["subfolder"].(string)
-											imgType, _ := imgMap["type"].(string)
-											outputs = append(outputs, map[string]string{
-												"url":      fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=%s", serverURL, filename, subfolder, imgType),
-												"node_id":  nodeID,
-												"filename": filename,
-												"kind":     "image",
-											})
-										}
-									}
-								}
-							}
-							// Text
-							if texts, ok := nodeMap["text"]; ok {
-								if textList, ok := texts.([]interface{}); ok {
-									for _, t := range textList {
-										outputs = append(outputs, map[string]string{
-											"value":   fmt.Sprintf("%v", t),
-											"node_id": nodeID,
-											"kind":    "text",
-										})
-									}
-								}
-							}
-							// Gifs/video
-							if gifs, ok := nodeMap["gifs"]; ok {
-								if gifList, ok := gifs.([]interface{}); ok {
-									for _, g := range gifList {
-										if gifMap, ok := g.(map[string]interface{}); ok {
-											filename, _ := gifMap["filename"].(string)
-											subfolder, _ := gifMap["subfolder"].(string)
-											format, _ := gifMap["format"].(string)
-											outputs = append(outputs, map[string]string{
-												"url":      fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=output&format=%s", serverURL, filename, subfolder, format),
-												"node_id":  nodeID,
-												"filename": filename,
-												"kind":     "gif",
-											})
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"outputs": outputs,
-		"raw":     historyData,
-	})
+	c.JSON(http.StatusOK, gin.H{"prompt_id": promptResp.PromptID, "job_id": job.ID, "durable_media": true})
 }
 
 func (h *Handler) ProxyComfyUIImage(c *gin.Context) {

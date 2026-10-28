@@ -8,9 +8,11 @@ $env:DEV_MODE = 'true'
 $env:ADMIN_DEV_URL = 'http://127.0.0.1:5174'
 $env:CANVAS_DEV_URL = 'http://127.0.0.1:5173'
 $env:PORT = ':16789'
+$taskBackend = Join-Path $taskRoot 'backend/.run/flowcanva-durable.exe'
+if (-not (Test-Path -LiteralPath $taskBackend)) { $taskBackend = Join-Path $taskRoot 'backend/backend.exe' }
 
 $taskServices = @(
-    @{ Name = 'backend'; Port = 16789; Folder = 'backend'; Exe = (Join-Path $taskRoot 'backend/backend.exe'); Args = @(); Url = 'http://127.0.0.1:16789/' },
+    @{ Name = 'backend'; Port = 16789; Folder = 'backend'; Exe = $taskBackend; Args = @(); Url = 'http://127.0.0.1:16789/' },
     @{ Name = 'canvas'; Port = 5173; Folder = 'frontend-canvas'; Exe = $taskNode; Args = @('node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5173', '--strictPort'); Url = 'http://127.0.0.1:5173/canvas/' },
     @{ Name = 'admin'; Port = 5174; Folder = 'frontend-admin'; Exe = $taskNode; Args = @('node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5174', '--strictPort'); Url = 'http://127.0.0.1:5174/' }
 )

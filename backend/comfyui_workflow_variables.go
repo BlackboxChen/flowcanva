@@ -10,7 +10,7 @@ import (
 )
 
 func (h *Handler) ComfyUIWorkflowCapabilities(c *gin.Context) {
-	c.JSON(200, gin.H{"workflow_variables": true, "image_variables": true, "keyframe_approval": true})
+	c.JSON(200, gin.H{"workflow_variables": true, "image_variables": true, "keyframe_approval": true, "persistent_jobs": true, "durable_media": true})
 }
 
 // Resolve canvas media URLs before substituting them into a ComfyUI prompt.

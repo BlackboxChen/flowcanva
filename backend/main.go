@@ -33,6 +33,10 @@ func main() {
 	defer db.Close()
 
 	h := &Handler{db: db, log: logger, cfg: cfg}
+	if err := h.startWorkflowJobs(); err != nil {
+		logger.Error("workflow persistence startup failed", "error", err)
+		panic(err)
+	}
 	r := setupRouter(h, cfg)
 
 	listenAddr := cfg.Port

@@ -193,7 +193,7 @@ func migrate(db *sql.DB, log *slog.Logger) error {
 	// performance index for asset pagination
 	db.Exec(`CREATE INDEX IF NOT EXISTS idx_assets_created_at ON assets(created_at)`)
 
-	return nil
+	return initWorkflowPersistence(db)
 }
 
 // addColsIfMissing adds columns to a table if they don't exist (SQLite compat)

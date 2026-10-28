@@ -218,6 +218,12 @@ func (h *Handler) CreateNode(c *gin.Context) {
 	if n.Config == "" {
 		n.Config = "{}"
 	}
+	localized, localErr := h.localizeNodeContent(c.Request.Context(), n.NodeType, n.Content)
+	if localErr != nil {
+		c.JSON(409, gin.H{"error": localErr.Error()})
+		return
+	}
+	n.Content = localized
 
 	_, err := h.db.Exec(`INSERT INTO nodes (id, canvas_id, node_type, x, y, width, height, content, config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		n.ID, n.CanvasID, n.NodeType, n.X, n.Y, n.Width, n.Height, n.Content, n.Config)
@@ -261,6 +267,7 @@ func (h *Handler) UpdateNode(c *gin.Context) {
 		return
 	}
 
+	previousContent := n.Content
 	if body.X != nil {
 		n.X = *body.X
 	}
@@ -274,17 +281,35 @@ func (h *Handler) UpdateNode(c *gin.Context) {
 		n.Height = *body.Height
 	}
 	if body.Content != nil {
-		n.Content = *body.Content
+		incoming := *body.Content
+		if n.NodeType == "workflow" {
+			protected, protectErr := h.protectWorkflowJobWrite(n.Content, incoming)
+			if protectErr != nil {
+				c.JSON(409, gin.H{"error": protectErr.Error()})
+				return
+			}
+			incoming = protected
+		}
+		localized, localErr := h.localizeNodeContent(c.Request.Context(), n.NodeType, incoming)
+		if localErr != nil {
+			c.JSON(409, gin.H{"error": localErr.Error()})
+			return
+		}
+		n.Content = localized
 	}
 	if body.Config != nil {
 		n.Config = *body.Config
 	}
 
-	_, err = h.db.Exec(`UPDATE nodes SET x=?, y=?, width=?, height=?, content=?, config=?, updated_at=datetime('now','localtime') WHERE id=? AND canvas_id=?`,
-		n.X, n.Y, n.Width, n.Height, n.Content, n.Config, id, cid)
+	result, err := h.db.Exec(`UPDATE nodes SET x=?, y=?, width=?, height=?, content=?, config=?, updated_at=datetime('now','localtime') WHERE id=? AND canvas_id=? AND content=?`,
+		n.X, n.Y, n.Width, n.Height, n.Content, n.Config, id, cid, previousContent)
 	if err != nil {
 		h.log.Error("update node", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if count, _ := result.RowsAffected(); count != 1 {
+		c.JSON(409, gin.H{"error": "节点已有更新，请重试保存"})
 		return
 	}
 

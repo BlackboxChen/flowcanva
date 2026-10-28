@@ -149,7 +149,11 @@ export function useNodes() {
       node.content = content
     }
     if (!canvasId.value) return
-    try { await updateNode(canvasId.value, id, { content }) } catch { /* ignore save errors during stream */ }
+    try {
+      const saved = await updateNode(canvasId.value, id, { content })
+      // Server-owned job metadata and local output URLs may differ from the submitted form.
+      if (node && node.content === content) node.content = saved.content
+    } catch { /* retain unsaved local edits; the backend never accepts remote outputs */ }
   }
 
   async function updateNodeConfig(id: string, config: string) {

@@ -6,7 +6,7 @@ import { useWorkflowReferences, type WorkflowVariable } from '../../composables/
 import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
 import { normalizeH3Frames } from '../../composables/normalizeH3Frames'
 import WorkflowSeedControls from '../WorkflowSeedControls.vue'
-import { persistWorkflowMedia, type WorkflowOutput } from '../../composables/persistWorkflowMedia'
+import type { WorkflowOutput } from '../../types/workflow'
 
 const props = defineProps<{
   node: Node | null
@@ -61,14 +61,13 @@ async function pollResults(id: string) {
       if (d.outputs?.length) {
         const generated = d.outputs.map((o: any, i: number) => {
           const kind = o.kind || 'image'
-          const type = kind === 'text' ? 'text' : kind === 'gif' || /\.(mp4|webm|mov)(?:[?&]|$)/i.test(o.filename || o.url || '') ? 'video' : outputType.value
-          return { name: `输出${d.outputs.length > 1 ? i + 1 : ''}`, value: o.url || o.value, type }
+          const type = ['image','video','audio','text'].includes(kind) ? kind : kind === 'gif' ? 'video' : outputType.value
+          return { name: `输出${d.outputs.length > 1 ? i + 1 : ''}`, value: o.url || o.value, type, sourceURL: o.source_url }
         })
-        errorMsg.value = '✅ 已生成，正在保存到本地…'
         try {
-          const local = await persistWorkflowMedia(generated)
+          if (!d.durable_media || generated.some((o: WorkflowOutput) => o.type !== 'text' && !o.value?.startsWith('/uploads/'))) throw new Error('后端尚未提供已持久化的本地结果，请更新后端')
           if (runningId.value !== id || props.node?.id !== targetNodeId) return
-          outputs.value = local
+          outputs.value = generated
           errorMsg.value = ''
         } catch (error: any) {
           if (runningId.value !== id || props.node?.id !== targetNodeId) return
@@ -79,7 +78,10 @@ async function pollResults(id: string) {
         isRunning.value = false; runningId.value = null; save()
         return
       }
-      if (Date.now() - start > 30 * 60 * 1000) { errorMsg.value = '等待任务超过30分钟，可稍后查询服务器历史'; isRunning.value = false; runningId.value = null; return }
+      if (d.warning) errorMsg.value = `后台继续处理：${d.warning}`
+      else if (d.job_status === 'saving') errorMsg.value = '✅ 媒体已生成，后端正在保存本地副本…'
+      else if (d.job_status) errorMsg.value = '✅ 后端持续查询任务；关闭页面不会停止保存。'
+      if (Date.now() - start > 30 * 60 * 1000) { errorMsg.value = '已停止页面查询，后端仍会继续处理并保存，可稍后查询上次任务'; isRunning.value = false; runningId.value = null; return }
     } catch { /* retry */ }
     setTimeout(poll, 3000)
   }
@@ -105,11 +107,13 @@ async function execute() {
     }
     const prepared = prepareSeed(graph)
     const wf = prepared.workflow
-    if (variables.value.length || approvalRequired.value) {
+    {
       const capability = await fetch('/api/comfyui/capabilities')
-      if (!capability.ok || !(await capability.json()).workflow_variables) throw new Error('工作流后端更新尚未启用，请重启本地后端后再执行；不会提交生成任务。')
+      if (!capability.ok) throw new Error('请更新并重启本地后端后再执行；此次未提交任务。')
+      const supported = await capability.json()
+      if (!supported.persistent_jobs || !supported.durable_media) throw new Error('后端持久化任务更新尚未启用，请重启更新后的后端；此次未提交任务。')
     }
-    const res = await fetch('/api/comfyui/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ server_url: serverUrl.value, workflow_json: wf, variables: Object.fromEntries(variables.value.map(v => [v.name, v.value])), image_variables: variables.value.filter(v => v.type === 'image').map(v => v.name), approval_required: approvalRequired.value, keyframe_approved: keyframeApproved.value }) })
+    const res = await fetch('/api/comfyui/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ server_url: serverUrl.value, workflow_json: wf, canvas_id: props.node?.canvas_id, node_id: props.node?.id, seed: prepared.seed, variables: Object.fromEntries(variables.value.map(v => [v.name, v.value])), image_variables: variables.value.filter(v => v.type === 'image').map(v => v.name), approval_required: approvalRequired.value, keyframe_approved: keyframeApproved.value }) })
     const data = await res.json()
     if (!res.ok) { errorMsg.value = data.error || '失败'; isRunning.value = false; return }
     if (!data.prompt_id) throw new Error('服务器没有返回任务编号')
