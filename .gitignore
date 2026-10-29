@@ -25,3 +25,6 @@ backend/canvas-dist/*
 .run/
 
 backend/backups/
+
+*.db-wal
+*.db-shm

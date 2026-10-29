@@ -48,7 +48,7 @@ python scripts/restore-collaboration-backup.py backend/backups/<时间> .run/res
 & "C:\Users\win10-pc\Documents\ChatGPT\2026mywork\flowcanva\scripts\restart-collaboration.ps1"
 ```
 
-脚本检查 16789 端口所属进程，只停止本项目已知后端路径，随后隐藏启动新版并检查 /api/collaboration/settings。部署前数据库副本保存在 .run/before-collaboration.db。自动审批拦截了代理执行重启，当前需要用户运行脚本后再做在线验收。
+脚本检查 16789 端口所属进程，只停止本项目已知后端路径，随后隐藏启动新版并检查 /api/collaboration/settings。部署前数据库副本保存在 .run/before-collaboration.db。用户完成重启后，已于 2026-10-30 确认新版进程运行并完成在线验收。
 
 ## 本轮测试评估
 
@@ -60,4 +60,7 @@ python scripts/restore-collaboration-backup.py backend/backups/<时间> .run/res
 - SQLite 快照及媒体恢复校验通过。
 - 前端类型检查和构建通过；保留已有 CSS 伪元素及打包体积提示。
 - 没有使用真实 ComfyUI/SGLang 生成资源进行压力测试；实际 GPU 并行吞吐不在本轮结论内。
-- 旧后端尚未替换，新增功能的在线浏览器验收仍待部署后完成。
+- 2026-10-30 在线验收通过：新版进程及协作接口生效；独立模拟节点 A/B 提交间隔约 0.0005 秒，依赖节点 C 在上游完成后提交；人工审核节点保持暂停，未调用 GPU。
+- 在线旧版本编辑返回 409；资产软删除后文件仍可访问，回收站恢复成功；实际数据库与媒体备份成功。
+- 浏览器已验证协作同步状态、批次完成状态、并发上限、项目筛选及回收站入口。临时验收画布已清理，原打铁花画布未执行生成。
+- 在线测试原始记录：.run/collaboration-online-test.json；备份结果：.run/collaboration-backup-result.json。
