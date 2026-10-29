@@ -37,6 +37,7 @@ export interface Edge {
 }
 
 export interface Asset {
+  project?: string
   id: string
   filename: string
   url: string

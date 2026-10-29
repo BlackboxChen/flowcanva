@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, onUnmounted } from 'vue'
 import type { Node } from '../../types'
+import { waitForNodeSaves } from '../../api'
 import { useWorkflowApproval } from '../../composables/useWorkflowApproval'
 import { useWorkflowReferences, type WorkflowVariable } from '../../composables/useWorkflowReferences'
 import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
@@ -101,6 +102,7 @@ async function execute() {
   if (approvalRequired.value && !keyframeApproved.value) { errorMsg.value = '请先检查并勾选确认关键帧，再执行视频'; return }
   errorMsg.value = ''; isRunning.value = true; save()
   try {
+    if (props.node) await waitForNodeSaves(props.node.id)
     const graph = JSON.parse(workflowJson.value)
     if (normalizeH3Frames(graph)) {
       workflowJson.value = JSON.stringify(graph, null, 2)
@@ -119,7 +121,9 @@ async function execute() {
     const data = await res.json()
     if (!res.ok) { errorMsg.value = data.error || '失败'; isRunning.value = false; return }
     if (!data.prompt_id) throw new Error('服务器没有返回任务编号')
-    lastSeed.value = prepared.seed; lastPromptId.value = data.prompt_id; save(); pollResults(data.prompt_id)
+    if (!data.reused) lastSeed.value = prepared.seed;
+    if (data.reused && data.server_url) serverUrl.value = data.server_url;
+    lastPromptId.value = data.prompt_id; save(); pollResults(data.prompt_id)
   } catch (e: any) { errorMsg.value = e.message || '请求失败'; isRunning.value = false }
 }
 

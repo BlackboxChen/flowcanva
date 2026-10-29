@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -47,21 +48,22 @@ func (h *Handler) ExecuteComfyUI(c *gin.Context) {
 		return
 	}
 
+	req.ServerURL = strings.TrimRight(req.ServerURL, "/")
+	job, accepted := h.admitSubmission(c, req)
+	if !accepted {
+		return
+	}
 	// Remove leading "api/" from workflow if it's a full API workflow
 	var workflowJSON json.RawMessage
 	var resolveErr error
 	workflowJSON, resolveErr = resolveWorkflowVariables(c, req.ServerURL, req.WorkflowJSON, req.Variables, req.ImageVariables)
 	if resolveErr != nil {
+		h.setWorkflowSubmissionState(job, "failed", resolveErr.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": resolveErr.Error()})
 		return
 	}
 
 	// POST to ComfyUI prompt endpoint
-	job, jobErr := h.createWorkflowSubmission(req)
-	if jobErr != nil {
-		c.JSON(500, gin.H{"error": jobErr.Error()})
-		return
-	}
 	body := map[string]interface{}{
 		"prompt":    workflowJSON,
 		"prompt_id": job.Prompt, "client_id": job.ID, "extra_data": map[string]string{"flowcanva_job_id": job.ID},

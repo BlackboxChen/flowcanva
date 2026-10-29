@@ -37,6 +37,8 @@ func main() {
 		logger.Error("workflow persistence startup failed", "error", err)
 		panic(err)
 	}
+	h.startBatchWorker()
+	h.startBackups()
 	r := setupRouter(h, cfg)
 
 	listenAddr := cfg.Port

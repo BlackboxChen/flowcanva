@@ -162,6 +162,10 @@ func (h *Handler) UpdateCanvas(c *gin.Context) {
 }
 
 func (h *Handler) DeleteCanvas(c *gin.Context) {
+	if _, err := h.createBackup(); err != nil {
+		c.JSON(503, gin.H{"error": "删除前备份失败，未执行删除: " + err.Error()})
+		return
+	}
 	id := c.Param("cid")
 	_, err := h.db.Exec(`DELETE FROM canvases WHERE id = ?`, id)
 	if err != nil {
@@ -241,12 +245,15 @@ func (h *Handler) UpdateNode(c *gin.Context) {
 	cid := c.Param("cid")
 	id := c.Param("id")
 	var body struct {
-		X       *float64 `json:"x"`
-		Y       *float64 `json:"y"`
-		Width   *float64 `json:"width"`
-		Height  *float64 `json:"height"`
-		Content *string  `json:"content"`
-		Config  *string  `json:"config"`
+		ExpectedContent *string   `json:"expected_content"`
+		ExpectedLayout  []float64 `json:"expected_layout"`
+		ExpectedConfig  *string   `json:"expected_config"`
+		X               *float64  `json:"x"`
+		Y               *float64  `json:"y"`
+		Width           *float64  `json:"width"`
+		Height          *float64  `json:"height"`
+		Content         *string   `json:"content"`
+		Config          *string   `json:"config"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -267,6 +274,22 @@ func (h *Handler) UpdateNode(c *gin.Context) {
 		return
 	}
 
+	if body.Content != nil && (body.ExpectedContent == nil || editableContent(n.Content) != editableContent(*body.ExpectedContent)) {
+		c.JSON(409, gin.H{"error": "节点内容已被更新，请保留草稿并加载最新版本", "current": n})
+		return
+	}
+	if body.Config != nil && (body.ExpectedConfig == nil || n.Config != *body.ExpectedConfig) {
+		c.JSON(409, gin.H{"error": "节点配置已被更新，请加载最新版本", "current": n})
+		return
+	}
+	if body.X != nil || body.Y != nil || body.Width != nil || body.Height != nil {
+		layout := body.ExpectedLayout
+		if len(layout) != 4 || layout[0] != n.X || layout[1] != n.Y || layout[2] != n.Width || layout[3] != n.Height {
+			c.JSON(409, gin.H{"error": "节点位置或尺寸已被其他人修改，请加载最新版本", "current": n})
+			return
+		}
+	}
+	previousConfig := n.Config
 	previousContent := n.Content
 	if body.X != nil {
 		n.X = *body.X
@@ -301,8 +324,8 @@ func (h *Handler) UpdateNode(c *gin.Context) {
 		n.Config = *body.Config
 	}
 
-	result, err := h.db.Exec(`UPDATE nodes SET x=?, y=?, width=?, height=?, content=?, config=?, updated_at=datetime('now','localtime') WHERE id=? AND canvas_id=? AND content=?`,
-		n.X, n.Y, n.Width, n.Height, n.Content, n.Config, id, cid, previousContent)
+	result, err := h.db.Exec(`UPDATE nodes SET x=?, y=?, width=?, height=?, content=?, config=?, updated_at=datetime('now','localtime') WHERE id=? AND canvas_id=? AND content=? AND config=?`,
+		n.X, n.Y, n.Width, n.Height, n.Content, n.Config, id, cid, previousContent, previousConfig)
 	if err != nil {
 		h.log.Error("update node", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -317,6 +340,10 @@ func (h *Handler) UpdateNode(c *gin.Context) {
 }
 
 func (h *Handler) DeleteNode(c *gin.Context) {
+	if _, err := h.createBackup(); err != nil {
+		c.JSON(503, gin.H{"error": "删除前备份失败，未执行删除: " + err.Error()})
+		return
+	}
 	cid := c.Param("cid")
 	id := c.Param("id")
 

@@ -32,7 +32,10 @@ async function saveAsset() {
       `画布:${props.canvasId}`, `节点:${props.nodeId}`,
     ])]
     try {
-      await updateAsset(asset.id, { category: category.value, tags: JSON.stringify(labels) })
+      const projectRes = await fetch(`/api/canvases/${props.canvasId}/project`)
+      if (!projectRes.ok) throw new Error('读取项目归属失败')
+      const { project } = await projectRes.json()
+      await updateAsset(asset.id, { project, category: category.value, tags: JSON.stringify(labels) })
     } catch (error) {
       await deleteAsset(asset.id)
       throw error

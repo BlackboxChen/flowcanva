@@ -6,6 +6,8 @@ import BottomToolbar from './components/BottomToolbar.vue'
 import Minimap from './components/Minimap.vue'
 import NodeLayerPanel from './components/NodeLayerPanel.vue'
 import AssetManager from './components/AssetManager.vue'
+import CollaborationPanel from './components/CollaborationPanel.vue'
+import { useCollaborationSync } from './composables/useCollaborationSync'
 import PresetManager from './components/PresetManager.vue'
 import { useCanvas } from './composables/useCanvas'
 import { useNodes } from './composables/useNodes'
@@ -108,6 +110,7 @@ const {
   removeEdge,
   removeNodeEdges,
 } = useEdges()
+const { syncMessage, reloadSelected, saveProblems } = useCollaborationSync(nodes, edges, canvasId, selectedNodeId)
 
 const { canUndo, canRedo, push: pushHistory, undo, redo } = useHistory(nodes, edges)
 
@@ -714,6 +717,7 @@ async function handleSavePanel(content: string) {
       </div>
     </header>
 
+    <CollaborationPanel v-if="canvasId" :canvas-id="canvasId" :nodes="nodes" :sync-message="syncMessage" :save-problems="saveProblems" :selected-id="selectedNodeId" @reload="reloadSelected" />
     <InfiniteCanvas
       :viewport="viewport"
       :is-panning="isPanning"
@@ -780,7 +784,7 @@ async function handleSavePanel(content: string) {
       @select="handleLayerSelect"
     />
 
-    <AssetManager v-if="showAssetManager" @close="showAssetManager = false" />
+    <AssetManager :canvas-id="canvasId || undefined" v-if="showAssetManager" @close="showAssetManager = false" />
     <PresetManager v-if="showPresetManager" :canvas-id="canvasId ?? ''" @close="showPresetManager = false" />
   </div>
 </template>

@@ -3,6 +3,23 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { useAssets, ASSET_CATEGORIES } from '../composables/useAssets'
 import type { Asset } from '../types'
 import AssetTags from './AssetTags.vue'
+import AssetScope from './AssetScope.vue'
+import { fetchAssets } from '../api'
+const props = defineProps<{canvasId?:string}>()
+const scopeProject = ref('')
+const scopeMode = ref('all')
+const trash = ref(false)
+const trashedAssets = ref<Asset[]>([])
+const libraryMessage = ref('')
+async function toggleTrash() {
+  try { trash.value=!trash.value; if(trash.value) trashedAssets.value=await fetchAssets(true); else await loadAssets(true) } catch { libraryMessage.value='读取回收站失败' }
+}
+async function restoreAsset(id:string) {
+  try { const r=await fetch(`/api/admin/assets/${id}/restore`,{method:'POST'});if(!r.ok)throw new Error();trashedAssets.value=trashedAssets.value.filter(a=>a.id!==id);await loadAssets(true) } catch {libraryMessage.value='恢复失败'}
+}
+async function showReferences(id:string) {
+  try { const r=await fetch(`/api/admin/assets/${id}/references`);if(!r.ok)throw new Error();const refs=await r.json();libraryMessage.value=refs.length ? refs.map((r:any)=>`${r.canvas_name} / ${r.node_id}`).join('；') : '暂无画布引用' } catch {libraryMessage.value='引用检查失败'}
+}
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -22,7 +39,9 @@ loadAssets(true)
 watch([activeCategory, tagQuery], () => { page.value = 1 })
 
 const filtered = computed(() => {
-  let list = assets.value
+  let list = trash.value ? trashedAssets.value : assets.value
+  if(scopeMode.value==='project' && scopeProject.value) list=list.filter(a=>!a.project || a.project===scopeProject.value)
+  if(scopeMode.value==='public') list=list.filter(a=>!a.project)
   if (activeCategory.value !== '全部') {
     list = list.filter(a => a.category === activeCategory.value)
   }
@@ -147,6 +166,8 @@ onUnmounted(() => {
           </button>
         </div>
 
+        <AssetScope :canvas-id="props.canvasId" @scope="(project,mode)=>{scopeProject=project;scopeMode=mode;page=1}" />
+        <div class="px-6 text-xs text-white/70"><button @click="toggleTrash">{{trash?'返回资产库':'打开回收站'}}</button><p>{{libraryMessage}}</p></div>
         <!-- 上传区 -->
         <div
           class="mx-6 mt-4 border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer shrink-0"
@@ -211,6 +232,8 @@ onUnmounted(() => {
               <div class="p-2 space-y-1">
                 <p class="text-xs text-white/80 truncate" :title="a.filename">{{ a.filename }}</p>
                 <AssetTags :asset="a" />
+                <button class="text-xs text-white/60" @click="showReferences(a.id)">查看引用</button>
+                <button v-if="trash" class="text-xs text-cyan-300 ml-2" @click="restoreAsset(a.id)">恢复</button>
                 <p class="text-[10px] text-white/30">{{ formatSize(a.size) }}</p>
                 <div class="flex items-center gap-1.5">
                   <select
@@ -223,7 +246,7 @@ onUnmounted(() => {
                   </select>
                   <button
                     class="shrink-0 w-5 h-5 rounded bg-neutral-700 border border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30 flex items-center justify-center text-xs leading-none"
-                    title="删除"
+                    v-if="!trash" title="移入回收站（保留文件和已有引用）"
                     @click="removeAsset(a.id)"
                   >×</button>
                 </div>

@@ -23,3 +23,5 @@ backend/canvas-dist/*
 .kilo/
 .tools/
 .run/
+
+backend/backups/

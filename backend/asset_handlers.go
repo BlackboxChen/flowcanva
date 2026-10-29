@@ -24,10 +24,13 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	}
 	offset := (page - 1) * pageSize
 
-	whereClause := ""
+	whereClause := " WHERE id NOT IN (SELECT asset_id FROM asset_trash)"
+	if c.Query("trash") == "true" {
+		whereClause = " WHERE id IN (SELECT asset_id FROM asset_trash)"
+	}
 	args := []any{}
 	if category != "" {
-		whereClause = " WHERE category = ?"
+		whereClause += " AND category = ?"
 		args = append(args, category)
 	}
 
@@ -40,7 +43,7 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	}
 
 	queryArgs := append(args, pageSize, offset)
-	rows, err := h.db.Query(`SELECT id, filename, url, size, width, height, category, tags, created_at FROM assets`+whereClause+` ORDER BY created_at DESC LIMIT ? OFFSET ?`, queryArgs...)
+	rows, err := h.db.Query(`SELECT id, filename, url, size, width, height, category, tags, created_at, COALESCE((SELECT project FROM asset_projects WHERE asset_id=assets.id),'') FROM assets`+whereClause+` ORDER BY created_at DESC LIMIT ? OFFSET ?`, queryArgs...)
 	if err != nil {
 		h.log.Error("list assets", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -49,6 +52,7 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	defer rows.Close()
 
 	type Asset struct {
+		Project   string `json:"project"`
 		ID        string `json:"id"`
 		Filename  string `json:"filename"`
 		URL       string `json:"url"`
@@ -63,7 +67,7 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	items := []Asset{}
 	for rows.Next() {
 		var a Asset
-		if err := rows.Scan(&a.ID, &a.Filename, &a.URL, &a.Size, &a.Width, &a.Height, &a.Category, &a.Tags, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Filename, &a.URL, &a.Size, &a.Width, &a.Height, &a.Category, &a.Tags, &a.CreatedAt, &a.Project); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -124,28 +128,26 @@ func (h *Handler) UploadAsset(c *gin.Context) {
 		"filename": file.Filename,
 		"url":      url,
 		"size":     file.Size,
-			"category": "其他",
-			"tags":     "[]",
+		"category": "其他",
+		"tags":     "[]",
 	})
 }
 
 func (h *Handler) DeleteAsset(c *gin.Context) {
 	id := c.Param("id")
 
-	// get url to delete file
-	var url string
-	h.db.QueryRow(`SELECT url FROM assets WHERE id = ?`, id).Scan(&url)
-
-	_, err := h.db.Exec(`DELETE FROM assets WHERE id = ?`, id)
+	result, err := h.db.Exec(`INSERT OR IGNORE INTO asset_trash(asset_id) SELECT id FROM assets WHERE id=?`, id)
 	if err != nil {
-		h.log.Error("delete asset", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-
-	// try to delete file
-	if url != "" {
-		os.Remove("." + url)
+	if n, _ := result.RowsAffected(); n == 0 {
+		var exists int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM assets WHERE id=?`, id).Scan(&exists)
+		if exists == 0 {
+			c.Status(404)
+			return
+		}
 	}
 
 	c.Status(http.StatusNoContent)
@@ -155,6 +157,7 @@ func (h *Handler) DeleteAsset(c *gin.Context) {
 func (h *Handler) UpdateAsset(c *gin.Context) {
 	id := c.Param("id")
 	var body struct {
+		Project  *string `json:"project"`
 		Category *string `json:"category"`
 		Tags     *string `json:"tags"`
 	}
@@ -163,6 +166,12 @@ func (h *Handler) UpdateAsset(c *gin.Context) {
 		return
 	}
 
+	if body.Project != nil {
+		if _, err := h.db.Exec(`INSERT INTO asset_projects VALUES(?,?) ON CONFLICT(asset_id) DO UPDATE SET project=excluded.project`, id, *body.Project); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+	}
 	if body.Category != nil {
 		if _, err := h.db.Exec(`UPDATE assets SET category = ? WHERE id = ?`, *body.Category, id); err != nil {
 			h.log.Error("update asset category", "error", err)

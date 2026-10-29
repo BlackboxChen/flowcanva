@@ -1,3 +1,4 @@
+import { nodeBases, rememberNode, savingNodes, saveProblems } from '../composables/collaborationState'
 import type { Canvas, Node, Edge, Asset } from '../types'
 import type { ShotlistIssue, ShotlistStepInfo } from '../types/shotlist'
 
@@ -30,7 +31,7 @@ export function createCanvas(name: string) {
 }
 
 export function fetchCanvas(id: string) {
-  return req<Canvas>(`${BASE}/canvases/${id}`)
+  return req<Canvas>(`${BASE}/canvases/${id}`).then(canvas => { for (const n of canvas.nodes || []) if (!nodeBases.has(n.id)) rememberNode(n); return canvas })
 }
 
 export function updateCanvas(id: string, name: string) {
@@ -45,14 +46,33 @@ export function createNode(canvasId: string, data: Partial<Node>) {
   return req<Node>(`${BASE}/canvases/${canvasId}/nodes`, {
     method: 'POST',
     body: JSON.stringify(data),
-  })
+  }).then(node => { rememberNode(node); return node })
 }
 
-export function updateNode(canvasId: string, id: string, data: Partial<Node>) {
-  return req<Node>(`${BASE}/canvases/${canvasId}/nodes/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
+const nodeQueues = new Map<string, Promise<unknown>>()
+export async function waitForNodeSaves(id: string) {
+  while (nodeQueues.has(id)) await nodeQueues.get(id)
+  if (saveProblems[id]) throw new Error(saveProblems[id])
+}
+export function updateNode(canvasId: string, id: string, data: Partial<Node>): Promise<Node> {
+  savingNodes.add(id)
+  const pending = (nodeQueues.get(id) || Promise.resolve()).catch(() => {}).then(async () => {
+    if (saveProblems[id]) throw new Error(saveProblems[id])
+    const base = nodeBases.get(id)
+    try {
+      const saved = await req<Node>(`${BASE}/canvases/${canvasId}/nodes/${id}`, {
+        method: 'PUT', body: JSON.stringify({ ...data, expected_content: base?.content, expected_config: base?.config, expected_layout: base ? [base.x,base.y,base.width,base.height] : undefined }),
+      })
+      rememberNode(saved)
+      return saved
+    } catch (error) {
+      saveProblems[id] = error instanceof Error ? error.message : '保存失败，草稿已保留'
+      throw error
+    }
   })
+  nodeQueues.set(id, pending)
+  void pending.finally(() => { if (nodeQueues.get(id) === pending) { nodeQueues.delete(id); savingNodes.delete(id) } }).catch(() => {})
+  return pending
 }
 
 export function deleteNode(canvasId: string, id: string) {
@@ -80,10 +100,10 @@ export function deleteEdge(canvasId: string, edgeId: string) {
 }
 
 // Assets (personal asset library)
-export async function fetchAssets(): Promise<Asset[]> {
+export async function fetchAssets(trash = false): Promise<Asset[]> {
   const items: Asset[] = []
   for (let page = 1; ; page++) {
-    const result = await req<{items: Asset[]; total: number}>(`/api/admin/assets?page_size=200&page=${page}`)
+    const result = await req<{items: Asset[]; total: number}>(`/api/admin/assets?page_size=200&page=${page}&trash=${trash}`)
     items.push(...result.items)
     if (!result.items.length || items.length >= result.total) return items
   }
@@ -106,7 +126,7 @@ export function uploadAsset(file: File): Promise<Asset> {
   })
 }
 
-export function updateAsset(id: string, data: { category?: string; tags?: string }) {
+export function updateAsset(id: string, data: { category?: string; tags?: string; project?: string }) {
   return req<void>(`/api/admin/assets/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),

@@ -25,6 +25,14 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 
 	api := r.Group("/api")
 	{
+		api.POST("/collaboration/backup", h.BackupNow)
+		api.GET("/canvases/:cid/project", h.CanvasProject)
+		api.PUT("/canvases/:cid/project", h.CanvasProject)
+		api.GET("/collaboration/settings", h.CollaborationSettings)
+		api.PUT("/collaboration/settings", h.CollaborationSettings)
+		api.GET("/canvases/:cid/batch", h.ListBatchTasks)
+		api.POST("/canvases/:cid/batch", h.CreateBatch)
+		api.DELETE("/canvases/:cid/batch", h.StopBatch)
 		api.GET("/canvases", h.ListCanvases)
 		api.POST("/canvases", h.CreateCanvas)
 		api.GET("/canvases/:cid", h.GetCanvas)
@@ -69,6 +77,8 @@ func setupRouter(h *Handler, cfg Config) *gin.Engine {
 
 		admin.GET("/logs", h.ListLogs)
 
+		admin.POST("/assets/:id/restore", h.RestoreAsset)
+		admin.GET("/assets/:id/references", h.AssetReferences)
 		admin.GET("/assets", h.ListAssets)
 		admin.POST("/assets/upload", h.UploadAsset)
 		admin.PUT("/assets/:id", h.UpdateAsset)

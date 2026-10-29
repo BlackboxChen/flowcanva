@@ -10,7 +10,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -67,6 +69,14 @@ func uploadComfyImageReferences(c *gin.Context, serverURL string, sources []stri
 }
 
 func readComfyImageSource(c *gin.Context, source string) ([]byte, string, error) {
+	if strings.HasPrefix(source, "/uploads/") {
+		file, err := localWorkflowFile(source)
+		if err != nil {
+			return nil, "", err
+		}
+		data, err := os.ReadFile(file)
+		return data, filepath.Base(file), err
+	}
 	if strings.HasPrefix(strings.ToLower(source), "data:") {
 		parts := strings.SplitN(source, ",", 2)
 		if len(parts) != 2 || !strings.Contains(parts[0], ";base64") {

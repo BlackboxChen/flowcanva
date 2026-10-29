@@ -12,11 +12,13 @@ import (
 )
 
 func initDB(path string, log *slog.Logger) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path+"?_foreign_keys=on&_busy_timeout=5000&_journal_mode=WAL")
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		return nil, err
 	}
 
+	// Short database writes serialize; upstream generation requests remain concurrent.
+	db.SetMaxOpenConns(1)
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
@@ -25,6 +27,10 @@ func initDB(path string, log *slog.Logger) (*sql.DB, error) {
 		return nil, err
 	}
 
+	if err := (&Handler{db: db, log: log}).collaborationMigration(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	log.Info("database initialized", "path", path)
 	return db, nil
 }
