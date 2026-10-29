@@ -2,6 +2,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useAssets, ASSET_CATEGORIES } from '../composables/useAssets'
 import type { Asset } from '../types'
+import AssetTags from './AssetTags.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -9,21 +10,24 @@ const emit = defineEmits<{
 
 const { assets, addAsset, setCategory, removeAsset, loadAssets } = useAssets()
 const activeCategory = ref<string>('全部')
+const tagQuery = ref('')
 const isDragOver = ref(false)
 const uploading = ref(false)
 const PAGE_SIZE = 24
 const page = ref(1)
 const previewAsset = ref<Asset | null>(null)
 
-loadAssets()
+loadAssets(true)
 
-watch(activeCategory, () => { page.value = 1 })
+watch([activeCategory, tagQuery], () => { page.value = 1 })
 
 const filtered = computed(() => {
   let list = assets.value
   if (activeCategory.value !== '全部') {
     list = list.filter(a => a.category === activeCategory.value)
   }
+  const q = tagQuery.value.trim().toLowerCase()
+  if (q) list = list.filter(a => (a.tags + ' ' + a.filename).toLowerCase().includes(q))
   return list
 })
 
@@ -182,6 +186,8 @@ onUnmounted(() => {
           <span v-if="activeCategory === '全部'" class="ml-auto text-xs text-white/30 self-center">{{ filtered.length }} 个资产</span>
         </div>
 
+        <input v-model="tagQuery" aria-label="按标签或名称筛选资产" placeholder="筛选标签或名称，例如 项目:打铁花 / 章节:第二章" class="mx-6 mb-3 p-2 bg-neutral-800 text-white text-sm rounded" />
+
         <!-- 资产网格 -->
         <div class="flex-1 overflow-y-auto px-6 pb-4 min-h-0">
           <div v-if="pagedAssets.length === 0" class="flex flex-col items-center justify-center h-full text-white/20 py-16">
@@ -204,6 +210,7 @@ onUnmounted(() => {
               <!-- 信息栏 -->
               <div class="p-2 space-y-1">
                 <p class="text-xs text-white/80 truncate" :title="a.filename">{{ a.filename }}</p>
+                <AssetTags :asset="a" />
                 <p class="text-[10px] text-white/30">{{ formatSize(a.size) }}</p>
                 <div class="flex items-center gap-1.5">
                   <select

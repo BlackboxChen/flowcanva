@@ -7,6 +7,7 @@ import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
 import { normalizeH3Frames } from '../../composables/normalizeH3Frames'
 import WorkflowSeedControls from '../WorkflowSeedControls.vue'
 import WorkflowVariableInputs from '../WorkflowVariableInputs.vue'
+import GeneratedAssetSave from '../GeneratedAssetSave.vue'
 import type { WorkflowOutput } from '../../types/workflow'
 
 const props = defineProps<{
@@ -288,6 +289,7 @@ function onJsonKeydown(e: KeyboardEvent) {
     <div class="flex items-center gap-1 text-[9px] text-white/25">
       <span>{{ variables.length }} 入</span><span>·</span><span>{{ outputVars.length }} 出</span><span class="text-white/15 ml-auto cursor-pointer hover:text-white/40" @click="fullscreen=true">高级 ⛶</span>
     </div>
+    <GeneratedAssetSave v-if="node" :key="node.id" :outputs="outputs" :canvas-id="node.canvas_id" :node-id="node.id" :name="name" />
     <WorkflowVariableInputs :variables="variables" :media="connectedMedia" @change="onVarChange()" />
     <div class="flex gap-1">
       <button v-if="lastPromptId && !isRunning" class="h-6 px-2 text-[10px] rounded bg-white/10 text-white/60" @click="pollResults(lastPromptId)">查询上次任务</button>

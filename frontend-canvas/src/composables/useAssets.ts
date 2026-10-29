@@ -9,8 +9,8 @@ const assets = ref<Asset[]>([])
 const loaded = ref(false)
 let nameCounter = 0
 
-async function loadAssets() {
-  if (loaded.value) return
+async function loadAssets(force = false) {
+  if (loaded.value && !force) return
   try {
     assets.value = await fetchAssets()
     // 从已有资产数量初始化计数器
@@ -47,6 +47,13 @@ async function removeAsset(id: string) {
   assets.value = assets.value.filter(x => x.id !== id)
 }
 
+async function setTags(id: string, tags: string[]) {
+  const serialized = JSON.stringify([...new Set(tags.map(t => t.trim()).filter(Boolean))])
+  await updateAsset(id, { tags: serialized })
+  const a = assets.value.find(x => x.id === id)
+  if (a) a.tags = serialized
+}
+
 export function useAssets() {
-  return { ASSET_CATEGORIES, assets, loadAssets, addAsset, setCategory, removeAsset }
+  return { ASSET_CATEGORIES, assets, loadAssets, addAsset, setCategory, setTags, removeAsset }
 }

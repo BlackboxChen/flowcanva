@@ -80,8 +80,13 @@ export function deleteEdge(canvasId: string, edgeId: string) {
 }
 
 // Assets (personal asset library)
-export function fetchAssets() {
-  return req<any>(`/api/admin/assets?page_size=10000`).then(r => r.items || r)
+export async function fetchAssets(): Promise<Asset[]> {
+  const items: Asset[] = []
+  for (let page = 1; ; page++) {
+    const result = await req<{items: Asset[]; total: number}>(`/api/admin/assets?page_size=200&page=${page}`)
+    items.push(...result.items)
+    if (!result.items.length || items.length >= result.total) return items
+  }
 }
 
 // Node configs
