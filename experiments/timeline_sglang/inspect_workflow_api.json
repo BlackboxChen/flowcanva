@@ -1,0 +1,28 @@
+{
+  "11": {
+    "class_type": "MiniMaxH3TimelinePlanner",
+    "inputs": {
+      "width": 512,
+      "height": 288,
+      "generation_seconds": 3.0416666666666665,
+      "timeline_data": "{\"version\": 9, \"fps\": 24, \"globalPrompt\": \"A single golden spark floating above dark river stones at night. Static cinematic documentary camera.\", \"secondPass\": false, \"selection\": {\"start\": 0, \"duration\": 3.0416666666666665}, \"videoAudioEnabled\": false, \"videoClips\": [], \"images\": [], \"audios\": [], \"segmentConfig\": {\"count\": 1, \"mode\": \"timeline\", \"segments\": [{\"startFrame\": 0, \"endFrame\": 73, \"images\": [], \"audios\": [], \"prompt\": \"A single golden spark floating above dark river stones at night. Static cinematic documentary camera.\"}]}, \"videos\": []}"
+    }
+  },
+  "12": {
+    "class_type": "FlowTimelineSGLangSandbox",
+    "inputs": {
+      "finite_plan": [
+        "11",
+        2
+      ],
+      "server_url": "http://127.0.0.1:30010",
+      "mode": "inspect",
+      "task": "t2va",
+      "audio_policy": "reject",
+      "reference_uri": "",
+      "run_token": "inspect-002",
+      "seed": 42,
+      "steps": 2
+    }
+  }
+}
