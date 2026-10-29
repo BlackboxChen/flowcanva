@@ -13,16 +13,16 @@ def load(name):
     return module
 
 
-contract, client = load('contract'), load('client')
+contract, client, keyframes = load('contract'), load('client'), load('keyframes')
 
 
 class ContractTests(unittest.TestCase):
     def setUp(self):
-        self.plan = {'prompts': ['Preserve exact prompt.'], 'segment_plans': [{'width': 512, 'height': 288, 'length': 73, 'timeline': {}}], 'segment_overlaps': [0]}
+        self.plan = {'prompts': ['Preserve exact prompt.'], 'segment_plans': [{'width': 512, 'height': 288, 'length': 107, 'timeline': {}}], 'segment_overlaps': [0]}
 
     def test_canonical_timing_not_ignored_transport_fields(self):
         value = contract.compile_segments(self.plan, 42, 2)[0]
-        self.assertEqual(value['target']['duration_seconds'], 73 / 24)
+        self.assertEqual(value['target']['duration_seconds'], 107 / 24)
         self.assertEqual(value['prompt'], 'Preserve exact prompt.')
         self.assertNotIn('fps', value)
         self.assertNotIn('num_frames', value)
@@ -57,6 +57,37 @@ class ContractTests(unittest.TestCase):
     def test_invalid_frames_rejected(self):
         self.plan['segment_plans'][0]['length'] = 72
         with self.assertRaises(ValueError): contract.compile_segments(self.plan, 42, 2)
+
+    def test_sglang_duration_limit(self):
+        for length in [73, 362]:
+            self.plan['segment_plans'][0]['length'] = length
+            with self.assertRaises(ValueError): contract.compile_segments(self.plan, 42, 2)
+
+    def test_one_first_frame_per_segment(self):
+        self.plan['prompts'].append('Second shot.')
+        self.plan['segment_plans'].append(copy.deepcopy(self.plan['segment_plans'][0]))
+        values = contract.compile_segments(self.plan, 42, 4, task='fl2va', reference_uris=['a.png', 'b.png'])
+        self.assertEqual([v['conditions'][0]['uri'] for v in values], ['a.png', 'b.png'])
+        self.assertEqual([v['seed'] for v in values], [42, 43])
+        for refs in [[], ['a.png'], ['a.png', '']]:
+            with self.assertRaises(ValueError):
+                contract.compile_segments(self.plan, 42, 4, task='fl2va', reference_uris=refs)
+
+    def test_keyframes_validated_before_any_reference_written(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shared = root / 'shared'
+            shared.mkdir()
+            Image.new('RGB', (16, 16)).save(root / 'valid.png')
+            (root / 'invalid.png').write_bytes(b'not an image')
+            with self.assertRaises(Exception):
+                keyframes.export_keyframes('["valid.png", "invalid.png"]', 2, lambda f: root / f, shared)
+            self.assertFalse(list(shared.iterdir()))
+            values = keyframes.export_keyframes('["valid.png"]', 1, lambda f: root / f, shared)
+            self.assertEqual(len(values), 1)
+            self.assertTrue(values[0].startswith('/comfy/mnt/h3-out/timeline-references/'))
+            self.assertEqual(len(list(shared.iterdir())), 1)
 
     def test_ambiguous_submission_never_resubmits(self):
         with tempfile.TemporaryDirectory() as directory:

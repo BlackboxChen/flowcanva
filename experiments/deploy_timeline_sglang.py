@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent
 REMOTE = '/home/thao/timeline-sglang-sandbox'
 CONTAINER = 'flowcanva-timeline-sglang-sandbox'
 PORT = 18299
+REFERENCES = '/home/thao/comfyui-sglang-pilot/run/h3-out/timeline-references'
 LOG = logging.getLogger(__name__)
 
 
@@ -32,7 +33,7 @@ def command(client, cmd, timeout=60):
     return text
 
 
-def deploy():
+def deploy(image_source='h3-comfy-long'):
     client = connect()
     try:
         # Refuse to replace even an earlier sandbox without an explicit follow-up.
@@ -41,9 +42,10 @@ def deploy():
             raise RuntimeError('Sandbox already exists; inspect it instead of replacing it')
         if command(client, f"ss -ltnH 'sport = :{PORT}'").strip():
             raise RuntimeError('Sandbox port already occupied; no existing service will be changed')
-        image = command(client, "docker inspect h3-comfy-long --format '{{.Image}}'").strip()
+        image = command(client, 'docker inspect ' + shlex.quote(image_source) + " --format '{{.Image}}'").strip()
         user = command(client, 'id -u').strip() + ':' + command(client, 'id -g').strip()
         command(client, 'mkdir -p ' + ' '.join(shlex.quote(REMOTE + '/' + name) for name in ['custom_nodes/FlowTimelineSGLangSandbox', 'input', 'output', 'temp', 'user', 'models', 'reports']))
+        command(client, 'mkdir -p ' + shlex.quote(REFERENCES))
         sftp = client.open_sftp()
         for source in (ROOT / 'timeline_sglang').glob('*.py'):
             sftp.put(str(source), REMOTE + '/custom_nodes/FlowTimelineSGLangSandbox/' + source.name)
@@ -54,6 +56,7 @@ def deploy():
                 '-e', 'NVIDIA_VISIBLE_DEVICES=void', '-e', 'CUDA_VISIBLE_DEVICES=', '-e', 'PYTHONDONTWRITEBYTECODE=1',
                 '-e', 'HF_HOME=/sandbox/cache',
                 '-v', REMOTE + ':/sandbox',
+                '-v', REFERENCES + ':/sglang-references',
                 '-v', '/home/thao/comfyui/run:/comfy/mnt:ro',
                 '-v', '/data/comfyui-109/basedir/custom_nodes/ComfyUI-MiniMaxH3-TimelineDirector:/planner:ro',
                 '-w', '/comfy/mnt/ComfyUI', '--entrypoint', '/comfy/mnt/venv/bin/python3', image,

@@ -4,8 +4,8 @@
     "inputs": {
       "width": 512,
       "height": 288,
-      "generation_seconds": 3.0416666666666665,
-      "timeline_data": "{\"version\": 9, \"fps\": 24, \"globalPrompt\": \"A single golden spark floating above dark river stones at night. Static cinematic documentary camera.\", \"secondPass\": false, \"selection\": {\"start\": 0, \"duration\": 3.0416666666666665}, \"videoAudioEnabled\": false, \"videoClips\": [], \"images\": [], \"audios\": [], \"segmentConfig\": {\"count\": 1, \"mode\": \"timeline\", \"segments\": [{\"startFrame\": 0, \"endFrame\": 73, \"images\": [], \"audios\": [], \"prompt\": \"A single golden spark floating above dark river stones at night. Static cinematic documentary camera.\"}]}, \"videos\": []}"
+      "generation_seconds": 4.458333333333333,
+      "timeline_data": "{\"version\": 9, \"fps\": 24, \"globalPrompt\": \"A single golden spark floating above dark river stones at night. Static cinematic documentary camera.\", \"secondPass\": false, \"selection\": {\"start\": 0, \"duration\": 4.458333333333333}, \"videoAudioEnabled\": false, \"videoClips\": [], \"images\": [], \"audios\": [], \"segmentConfig\": {\"count\": 1, \"mode\": \"timeline\", \"segments\": [{\"startFrame\": 0, \"endFrame\": 107, \"images\": [], \"audios\": [], \"prompt\": \"A single golden spark floating above dark river stones at night. Static cinematic documentary camera.\"}]}, \"videos\": []}"
     }
   },
   "12": {
@@ -20,7 +20,7 @@
       "task": "t2va",
       "audio_policy": "reject",
       "reference_uri": "",
-      "run_token": "inspect-002",
+      "run_token": "inspect-107frames",
       "seed": 42,
       "steps": 2
     }
