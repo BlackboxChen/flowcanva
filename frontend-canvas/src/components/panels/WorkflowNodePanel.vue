@@ -6,6 +6,7 @@ import { useWorkflowReferences, type WorkflowVariable } from '../../composables/
 import { useWorkflowSeed } from '../../composables/useWorkflowSeed'
 import { normalizeH3Frames } from '../../composables/normalizeH3Frames'
 import WorkflowSeedControls from '../WorkflowSeedControls.vue'
+import WorkflowVariableInputs from '../WorkflowVariableInputs.vue'
 import type { WorkflowOutput } from '../../types/workflow'
 
 const props = defineProps<{
@@ -273,7 +274,7 @@ function onJsonKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div v-if="node" :style="panelStyle" class="pointer-events-auto bg-neutral-900/95 backdrop-blur rounded-2xl border border-white/20 p-2 space-y-1 max-h-[45vh] overflow-y-auto" @pointerdown.stop>
+  <div v-if="node" :style="panelStyle" class="pointer-events-auto bg-neutral-900/95 backdrop-blur rounded-2xl border border-white/20 p-2 space-y-1 max-h-[60vh] overflow-y-auto" @pointerdown.stop @wheel.stop>
     <div class="flex items-center gap-1">
       <input v-model="name" @change="save()" placeholder="名称" class="flex-1 text-white/80 text-xs bg-transparent border-none outline-none" />
       <button class="h-5 px-1.5 rounded text-white/30 hover:text-white text-[10px] whitespace-nowrap inline-flex items-center gap-0.5" @click="fullscreen = true">
@@ -287,17 +288,7 @@ function onJsonKeydown(e: KeyboardEvent) {
     <div class="flex items-center gap-1 text-[9px] text-white/25">
       <span>{{ variables.length }} 入</span><span>·</span><span>{{ outputVars.length }} 出</span><span class="text-white/15 ml-auto cursor-pointer hover:text-white/40" @click="fullscreen=true">高级 ⛶</span>
     </div>
-    <div v-for="(v, i) in variables.slice(0, 4)" :key="i" class="flex items-center gap-1">
-      <span class="text-yellow-300/60 text-[9px] w-12 truncate">{{ v.name }}</span>
-      <template v-if="v.type === 'image' || v.type === 'video' || v.type === 'audio'">
-        <img v-if="v.value" :src="v.value" class="h-6 w-6 rounded object-cover border border-white/10" />
-        <select v-model="v.value" @change="onVarChange()" class="flex-1 h-5 text-[8px] bg-white/5 border border-white/10 rounded px-1 text-white/50 outline-none">
-          <option value="">(空)</option>
-          <option v-for="ni in connectedMedia" :key="ni.url" :value="ni.url">{{ ni.label }}</option>
-        </select>
-      </template>
-      <textarea v-else v-model="v.value" @input="onVarChange()" rows="3" class="flex-1 text-[10px] bg-white/5 border border-white/10 rounded p-1 text-white/70 outline-none resize-y" />
-    </div>
+    <WorkflowVariableInputs :variables="variables" :media="connectedMedia" @change="onVarChange()" />
     <div class="flex gap-1">
       <button v-if="lastPromptId && !isRunning" class="h-6 px-2 text-[10px] rounded bg-white/10 text-white/60" @click="pollResults(lastPromptId)">查询上次任务</button>
       <button class="flex-1 h-6 text-[10px] rounded bg-cyan-500/20 text-cyan-400 disabled:opacity-30" :disabled="!workflowJson || isRunning" @click="execute">{{ isRunning ? '执行中...' : '▶ 执行' }}</button>
