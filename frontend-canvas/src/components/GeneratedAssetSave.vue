@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { WorkflowOutput } from '../types/workflow'
-import { uploadAsset, updateAsset, deleteAsset } from '../api'
+import { uploadAsset, updateAsset, deleteAsset, fetchAssets } from '../api'
 import { useAssets, ASSET_CATEGORIES } from '../composables/useAssets'
 
 const props = defineProps<{ outputs: WorkflowOutput[]; canvasId: string; nodeId: string; name: string }>()
@@ -22,11 +22,15 @@ async function saveAsset() {
     if (url.origin !== location.origin || !url.pathname.startsWith('/uploads/')) {
       throw new Error('结果尚未持久化到本地，请先查询任务结果。')
     }
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('读取生成结果失败')
-    const blob = await response.blob()
-    const ext = url.pathname.split('.').pop() || 'png'
-    const asset = await uploadAsset(new File([blob], `${props.name || '生成资产'}-${output.name}.${ext}`, { type: blob.type }))
+    const existing = (await fetchAssets()).find(a => new URL(a.url, location.origin).pathname === url.pathname)
+    let asset = existing
+    if (!asset) {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('读取生成结果失败')
+      const blob = await response.blob()
+      const ext = url.pathname.split('.').pop() || 'png'
+      asset = await uploadAsset(new File([blob], `${props.name || '生成资产'}-${output.name}.${ext}`, { type: blob.type }))
+    }
     const labels = [...new Set([
       ...tags.value.split(/[,，\n]/).map(t => t.trim()).filter(Boolean),
       `画布:${props.canvasId}`, `节点:${props.nodeId}`,
@@ -37,11 +41,11 @@ async function saveAsset() {
       const { project } = await projectRes.json()
       await updateAsset(asset.id, { project, category: category.value, tags: JSON.stringify(labels) })
     } catch (error) {
-      await deleteAsset(asset.id)
+      if (!existing) await deleteAsset(asset.id)
       throw error
     }
     await loadAssets(true)
-    message.value = '已保存到资产库（独立副本，可跨画布复用）'
+    message.value = existing ? '已更新现有资产的分类和标签，可跨画布复用' : '已保存到资产库，可跨画布复用'
   } catch (error) {
     message.value = error instanceof Error ? error.message : '保存失败，请重试'
   } finally {

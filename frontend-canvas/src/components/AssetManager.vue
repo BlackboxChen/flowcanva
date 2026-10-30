@@ -17,6 +17,10 @@ async function toggleTrash() {
 async function restoreAsset(id:string) {
   try { const r=await fetch(`/api/admin/assets/${id}/restore`,{method:'POST'});if(!r.ok)throw new Error();trashedAssets.value=trashedAssets.value.filter(a=>a.id!==id);await loadAssets(true) } catch {libraryMessage.value='恢复失败'}
 }
+async function trashAsset(id:string) {
+  try { await removeAsset(id); libraryMessage.value='已移入回收站，可恢复；画布中已引用的文件保留。' }
+  catch { libraryMessage.value='删除失败，请重试' }
+}
 async function showReferences(id:string) {
   try { const r=await fetch(`/api/admin/assets/${id}/references`);if(!r.ok)throw new Error();const refs=await r.json();libraryMessage.value=refs.length ? refs.map((r:any)=>`${r.canvas_name} / ${r.node_id}`).join('；') : '暂无画布引用' } catch {libraryMessage.value='引用检查失败'}
 }
@@ -245,10 +249,10 @@ onUnmounted(() => {
                     <option v-for="cat in ASSET_CATEGORIES.filter(c => c !== '全部')" :key="cat" :value="cat">{{ cat }}</option>
                   </select>
                   <button
-                    class="shrink-0 w-5 h-5 rounded bg-neutral-700 border border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/30 flex items-center justify-center text-xs leading-none"
-                    v-if="!trash" title="移入回收站（保留文件和已有引用）"
-                    @click="removeAsset(a.id)"
-                  >×</button>
+                    class="shrink-0 rounded bg-neutral-700 border border-white/10 text-white/70 hover:text-red-400 hover:border-red-500/30 px-2 py-1 text-xs"
+                    v-if="!trash" title="删除资产并移入回收站，已引用的文件保留"
+                    @click="trashAsset(a.id)"
+                  >删除</button>
                 </div>
               </div>
             </div>
