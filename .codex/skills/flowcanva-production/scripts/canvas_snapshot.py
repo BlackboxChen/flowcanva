@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--base', default='http://127.0.0.1:16789')
+    parser.add_argument('--base', required=True, help='Explicit FlowCanva instance URL')
     parser.add_argument('--canvas', required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
