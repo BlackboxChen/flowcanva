@@ -52,7 +52,7 @@ async function setLimit(server:string,event:Event) {
 const timer=setInterval(refresh,4000);onUnmounted(()=>clearInterval(timer))
 </script>
 <template>
-  <div class="fixed top-14 right-4 z-[150] bg-neutral-900 text-white border border-white/20 rounded p-2 text-xs max-w-[92vw]" @pointerdown.stop @wheel.stop>
+  <div class="fixed top-14 right-[210px] z-[150] bg-neutral-900 text-white border border-white/20 rounded p-2 text-xs max-w-[92vw]" @pointerdown.stop @wheel.stop>
     <button @click="open=!open">协作与并发调度 {{ open ? '收起' : '展开' }}</button>
     <span v-if="Object.keys(saveProblems).length" class="text-red-400 ml-2">有未保存修改</span>
     <div v-if="open" class="w-[480px] max-w-[85vw] max-h-[75vh] overflow-y-auto space-y-3 mt-2">
@@ -81,3 +81,4 @@ const timer=setInterval(refresh,4000);onUnmounted(()=>clearInterval(timer))
     </div>
   </div>
 </template>
+
